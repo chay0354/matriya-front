@@ -38,15 +38,19 @@ This creates an optimized production build in the `build` folder.
 
 ## Configuration
 
-If your backend is running on a different port or host, edit the `API_BASE_URL` constant in:
-- `src/components/UploadTab.js`
-- `src/components/SearchTab.js`
-- `src/components/InfoTab.js`
+### Backend API URL
 
-Change:
-```javascript
-const API_BASE_URL = 'http://localhost:8000';
-```
+The frontend uses the `REACT_APP_API_BASE_URL` environment variable to connect to the backend.
+
+**For local development:**
+1. Create a `.env` file in the `front` directory
+2. Add: `REACT_APP_API_BASE_URL=http://localhost:8000`
+3. Restart the development server
+
+**For production (Vercel):**
+The environment variable is automatically set to `https://matriya-back.vercel.app` in `vercel.json`.
+
+See `ENV_SETUP.md` for detailed instructions.
 
 ## Project Structure
 
