@@ -36,7 +36,7 @@ function SearchTab() {
                 params.filename = selectedFile;
             }
             
-            const response = await api.get(`${API_BASE_URL}/search`, { 
+            const response = await api.get('/search', { 
                 params,
                 timeout: 60000  // 60 second timeout (Kernel processes through multiple agents)
             });
@@ -61,7 +61,7 @@ function SearchTab() {
         const loadFiles = async () => {
             setIsLoadingFiles(true);
             try {
-                const response = await api.get(`${API_BASE_URL}/files`, {
+                const response = await api.get('/files', {
                     timeout: 15000  // 15 second timeout (files list may need RAG service init)
                 });
                 if (!isMounted) return;
@@ -124,7 +124,7 @@ function SearchTab() {
                 }).join('\n');
             }
             
-            const response = await api.post(`${API_BASE_URL}${endpoint}`, {
+            const response = await api.post(endpoint, {
                 answer: results.answer,
                 context: contextToUse || '',
                 query: queryToUse

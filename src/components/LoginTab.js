@@ -32,7 +32,7 @@ function LoginTab({ onLogin }) {
                 ? { username: formData.username, password: formData.password }
                 : formData;
 
-            const response = await api.post(`${API_BASE_URL}${endpoint}`, payload, {
+            const response = await api.post(endpoint, payload, {
                 timeout: 10000  // 10 second timeout for auth requests
             });
 

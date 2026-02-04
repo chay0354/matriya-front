@@ -20,7 +20,7 @@ function AdminTab() {
 
     const loadFiles = async () => {
         try {
-            const response = await api.get(`${API_BASE_URL}/admin/files`, {
+            const response = await api.get('/admin/files', {
                 timeout: 15000  // 15 second timeout (files list may need RAG service init)
             });
             setFiles(response.data.files || []);
@@ -33,7 +33,7 @@ function AdminTab() {
 
     const loadUsers = async () => {
         try {
-            const response = await api.get(`${API_BASE_URL}/admin/users`, {
+            const response = await api.get('/admin/users', {
                 timeout: 10000  // 10 second timeout for user list
             });
             setUsers(response.data.users || []);
@@ -49,7 +49,7 @@ function AdminTab() {
 
         setDeletingFile(filename);
         try {
-            await api.delete(`${API_BASE_URL}/admin/files/${encodeURIComponent(filename)}`, {
+            await api.delete(`/admin/files/${encodeURIComponent(filename)}`, {
                 timeout: 5000
             });
             setFiles(files.filter(f => f !== filename));
@@ -64,7 +64,7 @@ function AdminTab() {
     const handleUserClick = async (user) => {
         setSelectedUser(user);
         try {
-            const response = await api.get(`${API_BASE_URL}/admin/users/${user.id}/permissions`, {
+            const response = await api.get(`/admin/users/${user.id}/permissions`, {
                 timeout: 5000  // 5 second timeout
             });
             setUserPermissions(response.data);
@@ -78,7 +78,7 @@ function AdminTab() {
 
         setSavingPermissions(true);
         try {
-            await api.post(`${API_BASE_URL}/admin/users/${selectedUser.id}/permissions`, {
+            await api.post(`/admin/users/${selectedUser.id}/permissions`, {
                 access_all_files: userPermissions.access_all_files,
                 allowed_files: userPermissions.allowed_files
             }, {

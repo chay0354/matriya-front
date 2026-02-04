@@ -41,7 +41,7 @@ function UploadTab() {
         setUploadResult(null);
 
         try {
-            const response = await api.post(`${API_BASE_URL}/ingest/file`, formData, {
+            const response = await api.post('/ingest/file', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }

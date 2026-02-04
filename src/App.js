@@ -29,6 +29,7 @@ function App() {
             
             // Verify token in background (don't block UI)
             axios.get(`${API_BASE_URL}/auth/me`, {
+                baseURL: API_BASE_URL,
                 headers: { Authorization: `Bearer ${storedToken}` },
                 timeout: 10000  // 10 second timeout
             })

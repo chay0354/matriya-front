@@ -16,7 +16,7 @@ function InfoTab() {
         setError(null);
 
         try {
-            const response = await api.get(`${API_BASE_URL}/collection/info`, {
+            const response = await api.get('/collection/info', {
                 timeout: 15000  // 15 second timeout (may need RAG service init)
             });
             setInfo(response.data);
