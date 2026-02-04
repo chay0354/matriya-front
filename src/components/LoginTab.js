@@ -26,12 +26,12 @@ function LoginTab({ onLogin }) {
         setIsLoading(true);
         setError(null);
 
-        try {
-            const endpoint = isLogin ? '/auth/login' : '/auth/signup';
-            const payload = isLogin
-                ? { username: formData.username, password: formData.password }
-                : formData;
+        const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+        const payload = isLogin
+            ? { username: formData.username, password: formData.password }
+            : formData;
 
+        try {
             const response = await api.post(endpoint, payload, {
                 timeout: 10000  // 10 second timeout for auth requests
             });
@@ -45,7 +45,34 @@ function LoginTab({ onLogin }) {
                 onLogin(response.data.user, response.data.access_token);
             }
         } catch (err) {
-            setError(err.response?.data?.detail || err.message || 'שגיאה בהתחברות');
+            // Log detailed error information to console
+            console.error('Login/Signup Error:', {
+                status: err.response?.status,
+                statusText: err.response?.statusText,
+                data: err.response?.data,
+                message: err.message,
+                endpoint: endpoint,
+                url: err.config?.url
+            });
+            
+            // Check for database connection errors
+            const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.message || 'שגיאה בהתחברות';
+            const errorText = err.response?.data?.error || err.response?.data?.detail || '';
+            
+            if (errorText.includes('Database') || errorText.includes('POSTGRES_URL') || errorText.includes('connection not available')) {
+                console.error('🔴 DATABASE CONNECTION ERROR:', errorText);
+                console.error('💡 SOLUTION: Set POSTGRES_URL in Vercel Dashboard → Settings → Environment Variables');
+                console.error('   Use Supabase pooler connection: postgresql://postgres:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true');
+            }
+            
+            if (err.response?.status === 500) {
+                console.error('⚠️ Server Error (500): Check backend logs for details');
+                if (errorText.includes('Database')) {
+                    console.error('   This is likely a database connection issue. Verify POSTGRES_URL is set correctly.');
+                }
+            }
+            
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
