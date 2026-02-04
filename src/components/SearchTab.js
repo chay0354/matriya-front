@@ -65,9 +65,9 @@ function SearchTab() {
                 });
                 const files = response.data.files || [];
                 setAvailableFiles(files);
-                // Auto-select first file if available
-                if (files.length > 0 && !selectedFile) {
-                    setSelectedFile(files[0]);
+                // Auto-select first file if available and no file is currently selected
+                if (files.length > 0) {
+                    setSelectedFile(prev => prev || files[0]);
                 }
             } catch (err) {
                 console.error('Error loading files:', err);
@@ -77,8 +77,7 @@ function SearchTab() {
             }
         };
         loadFiles();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [selectedFile]);
 
     const handleAgentCheck = async (agentType) => {
         if (!results || !results.answer) {
