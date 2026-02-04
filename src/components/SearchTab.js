@@ -5,8 +5,9 @@ import './SearchTab.css';
 function SearchTab() {
     const [query, setQuery] = useState('');
     const [nResults, setNResults] = useState(5);
-    const [selectedFile, setSelectedFile] = useState('all');
+    const [selectedFile, setSelectedFile] = useState('');
     const [availableFiles, setAvailableFiles] = useState([]);
+    const [isLoadingFiles, setIsLoadingFiles] = useState(true);
     const [results, setResults] = useState(null);
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState(null);
@@ -31,11 +32,14 @@ function SearchTab() {
             };
             
             // Add filename filter if a specific file is selected
-            if (selectedFile && selectedFile !== 'all') {
+            if (selectedFile) {
                 params.filename = selectedFile;
             }
             
-            const response = await api.get(`${API_BASE_URL}/search`, { params });
+            const response = await api.get(`${API_BASE_URL}/search`, { 
+                params,
+                timeout: 60000  // 60 second timeout (Kernel processes through multiple agents)
+            });
 
             setResults(response.data);
         } catch (err) {
@@ -54,20 +58,37 @@ function SearchTab() {
     // Load available files on component mount
     React.useEffect(() => {
         const loadFiles = async () => {
+            setIsLoadingFiles(true);
             try {
-                const response = await api.get(`${API_BASE_URL}/files`);
-                setAvailableFiles(response.data.files || []);
+                const response = await api.get(`${API_BASE_URL}/files`, {
+                    timeout: 15000  // 15 second timeout (files list may need RAG service init)
+                });
+                const files = response.data.files || [];
+                setAvailableFiles(files);
+                // Auto-select first file if available
+                if (files.length > 0 && !selectedFile) {
+                    setSelectedFile(files[0]);
+                }
             } catch (err) {
                 console.error('Error loading files:', err);
-                // Don't show error to user, just log it
+                setError('שגיאה בטעינת רשימת הקבצים');
+            } finally {
+                setIsLoadingFiles(false);
             }
         };
         loadFiles();
     }, []);
 
     const handleAgentCheck = async (agentType) => {
-        if (!results || !results.answer || !results.context) {
-            setError('לא ניתן לבדוק ללא תשובה והקשר');
+        if (!results || !results.answer) {
+            setError('לא ניתן לבדוק ללא תשובה');
+            return;
+        }
+        
+        // Check if we have context or can build it from results
+        const hasContext = results.context || (results.results && results.results.length > 0);
+        if (!hasContext) {
+            setError('לא ניתן לבדוק ללא הקשר - אנא נסה שוב את החיפוש');
             return;
         }
 
@@ -80,10 +101,26 @@ function SearchTab() {
                 ? '/agent/contradiction' 
                 : '/agent/risk';
             
+            // Use query from state if not in results
+            const queryToUse = results.query || query;
+            
+            // Build context from search results if context is empty
+            let contextToUse = results.context;
+            if (!contextToUse && results.results && results.results.length > 0) {
+                // Reconstruct context from search results
+                contextToUse = results.results.map((result, index) => {
+                    const docText = result.document || result.text || '';
+                    const filename = result.metadata?.filename || 'Unknown';
+                    return `[Source ${index + 1} from ${filename}]:\n${docText}\n`;
+                }).join('\n');
+            }
+            
             const response = await api.post(`${API_BASE_URL}${endpoint}`, {
                 answer: results.answer,
-                context: results.context,
-                query: results.query
+                context: contextToUse || '',
+                query: queryToUse
+            }, {
+                timeout: 30000  // 30 second timeout for agent checks
             });
 
             setAgentAnalysis({
@@ -113,9 +150,16 @@ function SearchTab() {
                     <button
                         onClick={handleSearch}
                         disabled={isSearching}
-                        className="search-button"
+                        className={`search-button ${isSearching ? 'loading' : ''}`}
                     >
-                        {isSearching ? 'מחפש...' : 'חפש'}
+                        {isSearching ? (
+                            <>
+                                <span className="spinner"></span>
+                                מחפש...
+                            </>
+                        ) : (
+                            'חפש'
+                        )}
                     </button>
                 </div>
                 <div className="search-options">
@@ -136,14 +180,23 @@ function SearchTab() {
                             value={selectedFile}
                             onChange={(e) => setSelectedFile(e.target.value)}
                             className="file-select"
+                            disabled={isLoadingFiles}
                         >
-                            <option value="all">כל המסמכים</option>
-                            {availableFiles.map((filename, index) => (
-                                <option key={index} value={filename}>
-                                    {filename}
-                                </option>
-                            ))}
+                            {isLoadingFiles ? (
+                                <option value="">טוען קבצים...</option>
+                            ) : availableFiles.length === 0 ? (
+                                <option value="">אין קבצים זמינים</option>
+                            ) : (
+                                availableFiles.map((filename, index) => (
+                                    <option key={index} value={filename}>
+                                        {filename}
+                                    </option>
+                                ))
+                            )}
                         </select>
+                        {isLoadingFiles && (
+                            <span className="file-loading-spinner"></span>
+                        )}
                     </label>
                 </div>
 
@@ -164,9 +217,32 @@ function SearchTab() {
 
                 {results && (
                     <div className="search-results">
-                        {results.answer && (
+                        {results.blocked && (
+                            <div className="blocked-message">
+                                <h3>🚫 תשובה נחסמה</h3>
+                                <div className="blocked-text">
+                                    {results.block_reason || results.error || 'התשובה נחסמה על ידי המערכת'}
+                                </div>
+                                {results.state && (
+                                    <div className="state-badge blocked-state">
+                                        מצב: {results.state}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {results.answer && !results.blocked && (
                             <div className="ai-answer">
                                 <h3>🤖 תשובה חכמה (Doc Agent):</h3>
+                                {results.warning && (
+                                    <div className="warning-banner">
+                                        ⚠️ {results.warning}
+                                    </div>
+                                )}
+                                {results.state && (
+                                    <div className={`state-badge state-${results.state.toLowerCase()}`}>
+                                        מצב: {results.state}
+                                    </div>
+                                )}
                                 <div className="answer-text">{results.answer}</div>
                                 {results.context_sources && (
                                     <div className="answer-sources">
@@ -177,16 +253,30 @@ function SearchTab() {
                                     <button
                                         onClick={() => handleAgentCheck('contradiction')}
                                         disabled={isAnalyzing}
-                                        className="agent-button contradiction-button"
+                                        className={`agent-button contradiction-button ${isAnalyzing ? 'loading' : ''}`}
                                     >
-                                        {isAnalyzing ? 'בודק...' : '🔍 בדוק סתירות (Contradiction Agent)'}
+                                        {isAnalyzing ? (
+                                            <>
+                                                <span className="spinner"></span>
+                                                בודק...
+                                            </>
+                                        ) : (
+                                            '🔍 בדוק סתירות (Contradiction Agent)'
+                                        )}
                                     </button>
                                     <button
                                         onClick={() => handleAgentCheck('risk')}
                                         disabled={isAnalyzing}
-                                        className="agent-button risk-button"
+                                        className={`agent-button risk-button ${isAnalyzing ? 'loading' : ''}`}
                                     >
-                                        {isAnalyzing ? 'בודק...' : '⚠️ זהה סיכונים (Risk Agent)'}
+                                        {isAnalyzing ? (
+                                            <>
+                                                <span className="spinner"></span>
+                                                בודק...
+                                            </>
+                                        ) : (
+                                            '⚠️ זהה סיכונים (Risk Agent)'
+                                        )}
                                     </button>
                                 </div>
                             </div>

@@ -33,7 +33,7 @@ function LoginTab({ onLogin }) {
                 : formData;
 
             const response = await api.post(`${API_BASE_URL}${endpoint}`, payload, {
-                timeout: 30000  // 30 second timeout for auth requests
+                timeout: 10000  // 10 second timeout for auth requests
             });
 
             // Store token
@@ -117,9 +117,16 @@ function LoginTab({ onLogin }) {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="auth-button"
+                        className={`auth-button ${isLoading ? 'loading' : ''}`}
                     >
-                        {isLoading ? 'מעבד...' : (isLogin ? 'התחבר' : 'הירשם')}
+                        {isLoading ? (
+                            <>
+                                <span className="spinner"></span>
+                                מעבד...
+                            </>
+                        ) : (
+                            isLogin ? 'התחבר' : 'הירשם'
+                        )}
                     </button>
                 </form>
 

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import UploadTab from './components/UploadTab';
 import SearchTab from './components/SearchTab';
-import InfoTab from './components/InfoTab';
 import LoginTab from './components/LoginTab';
+import AdminTab from './components/AdminTab';
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -14,25 +14,46 @@ function App() {
     const [token, setToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Check if user is already logged in
+    // Check if user is already logged in (optimized)
     useEffect(() => {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
         
         if (storedToken && storedUser) {
-            // Verify token is still valid
-            axios.get(`${API_BASE_URL}/auth/me`, {
-                headers: { Authorization: `Bearer ${storedToken}` }
-            })
-            .then(response => {
-                setUser(response.data);
+            // Use stored user immediately for faster UI
+            try {
+                const userData = JSON.parse(storedUser);
+                setUser(userData);
                 setToken(storedToken);
                 axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+            } catch (e) {
+                console.error('Error parsing stored user:', e);
+            }
+            
+            // Verify token in background (don't block UI)
+            axios.get(`${API_BASE_URL}/auth/me`, {
+                headers: { Authorization: `Bearer ${storedToken}` },
+                timeout: 10000  // 10 second timeout
             })
-            .catch(() => {
-                // Token invalid, clear storage
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+            .then(response => {
+                // Update user data if verification succeeds
+                setUser(response.data);
+                // Update stored user data
+                localStorage.setItem('user', JSON.stringify(response.data));
+            })
+            .catch((error) => {
+                // Only clear storage on 401 (unauthorized), not on network errors
+                if (error.response?.status === 401) {
+                    // Token invalid, clear storage
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    setUser(null);
+                    setToken(null);
+                    delete axios.defaults.headers.common['Authorization'];
+                } else {
+                    // Network error or timeout - keep user logged in with stored data
+                    console.warn('Token verification failed, but keeping user logged in:', error.message);
+                }
             })
             .finally(() => {
                 setIsLoading(false);
@@ -56,10 +77,12 @@ function App() {
         delete axios.defaults.headers.common['Authorization'];
     };
 
+    const isAdmin = user && (user.is_admin || user.username === 'admin');
+    
     const tabs = [
         { id: 'upload', label: 'העלאת מסמכים' },
         { id: 'search', label: 'חיפוש' },
-        { id: 'info', label: 'מידע' }
+        ...(isAdmin ? [{ id: 'admin', label: 'ניהול' }] : [])
     ];
 
     if (isLoading) {
@@ -120,7 +143,7 @@ function App() {
             <div className="tab-content-wrapper">
                 {activeTab === 'upload' && <UploadTab />}
                 {activeTab === 'search' && <SearchTab />}
-                {activeTab === 'info' && <InfoTab />}
+                {activeTab === 'admin' && <AdminTab />}
             </div>
         </div>
     );

@@ -16,7 +16,9 @@ function InfoTab() {
         setError(null);
 
         try {
-            const response = await api.get(`${API_BASE_URL}/collection/info`);
+            const response = await api.get(`${API_BASE_URL}/collection/info`, {
+                timeout: 15000  // 15 second timeout (may need RAG service init)
+            });
             setInfo(response.data);
         } catch (err) {
             setError(err.response?.data?.detail || err.message || 'שגיאה בטעינת מידע');
@@ -51,8 +53,19 @@ function InfoTab() {
                         </div>
                     </div>
                 )}
-                <button onClick={loadCollectionInfo} className="refresh-button">
-                    רענן מידע
+                <button 
+                    onClick={loadCollectionInfo} 
+                    disabled={loading}
+                    className={`refresh-button ${loading ? 'loading' : ''}`}
+                >
+                    {loading ? (
+                        <>
+                            <span className="spinner"></span>
+                            טוען...
+                        </>
+                    ) : (
+                        'רענן מידע'
+                    )}
                 </button>
             </div>
         </div>
