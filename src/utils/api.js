@@ -3,8 +3,15 @@
  */
 import axios from 'axios';
 
-// Use environment variable for API URL, fallback to Vercel backend for production
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://matriya-back.vercel.app';
+// Use environment variable for API URL (REQUIRED)
+// Set REACT_APP_API_BASE_URL in .env file or Vercel environment variables
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
+if (!API_BASE_URL) {
+    console.error('REACT_APP_API_BASE_URL is not set! Please set it in your .env file or environment variables.');
+    console.error('For local development, create a .env file with: REACT_APP_API_BASE_URL=http://localhost:8000');
+    console.error('For production, set it in Vercel environment variables: REACT_APP_API_BASE_URL=https://matriya-back.vercel.app');
+}
 
 // Create axios instance
 const api = axios.create({

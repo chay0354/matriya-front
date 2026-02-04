@@ -5,8 +5,7 @@ import SearchTab from './components/SearchTab';
 import LoginTab from './components/LoginTab';
 import AdminTab from './components/AdminTab';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from './utils/api';
 
 function App() {
     const [activeTab, setActiveTab] = useState('upload');
