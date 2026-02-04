@@ -3,8 +3,8 @@
  */
 import axios from 'axios';
 
-// Use environment variable for API URL, fallback to localhost for development
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Use environment variable for API URL, fallback to Vercel backend for production
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://matriya-back.vercel.app';
 
 // Create axios instance
 const api = axios.create({
