@@ -10,7 +10,6 @@ import { API_BASE_URL } from './utils/api';
 function App() {
     const [activeTab, setActiveTab] = useState('upload');
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
     // Check if user is already logged in (optimized)
@@ -23,7 +22,6 @@ function App() {
             try {
                 const userData = JSON.parse(storedUser);
                 setUser(userData);
-                setToken(storedToken);
                 axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
             } catch (e) {
                 console.error('Error parsing stored user:', e);
@@ -47,7 +45,6 @@ function App() {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     setUser(null);
-                    setToken(null);
                     delete axios.defaults.headers.common['Authorization'];
                 } else {
                     // Network error or timeout - keep user logged in with stored data
@@ -64,13 +61,11 @@ function App() {
 
     const handleLogin = (userData, authToken) => {
         setUser(userData);
-        setToken(authToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
     };
 
     const handleLogout = () => {
         setUser(null);
-        setToken(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         delete axios.defaults.headers.common['Authorization'];

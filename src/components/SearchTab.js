@@ -77,6 +77,7 @@ function SearchTab() {
             }
         };
         loadFiles();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleAgentCheck = async (agentType) => {
