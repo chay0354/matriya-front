@@ -57,27 +57,36 @@ function SearchTab() {
 
     // Load available files on component mount
     React.useEffect(() => {
+        let isMounted = true;
         const loadFiles = async () => {
             setIsLoadingFiles(true);
             try {
                 const response = await api.get(`${API_BASE_URL}/files`, {
                     timeout: 15000  // 15 second timeout (files list may need RAG service init)
                 });
+                if (!isMounted) return;
                 const files = response.data.files || [];
                 setAvailableFiles(files);
-                // Auto-select first file if available and no file is currently selected
+                // Auto-select first file if available
                 if (files.length > 0) {
                     setSelectedFile(prev => prev || files[0]);
                 }
             } catch (err) {
+                if (!isMounted) return;
                 console.error('Error loading files:', err);
                 setError('שגיאה בטעינת רשימת הקבצים');
             } finally {
-                setIsLoadingFiles(false);
+                if (isMounted) {
+                    setIsLoadingFiles(false);
+                }
             }
         };
         loadFiles();
-    }, [selectedFile]);
+        return () => {
+            isMounted = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleAgentCheck = async (agentType) => {
         if (!results || !results.answer) {
