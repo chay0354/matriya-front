@@ -9,14 +9,22 @@ function AdminTab() {
     const [userPermissions, setUserPermissions] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeSection, setActiveSection] = useState('files'); // 'files' or 'users'
+    const [activeSection, setActiveSection] = useState('files'); // 'files' | 'users' | 'history'
     const [deletingFile, setDeletingFile] = useState(null);
     const [savingPermissions, setSavingPermissions] = useState(false);
+    const [searchHistory, setSearchHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     useEffect(() => {
         loadFiles();
         loadUsers();
     }, []);
+
+    useEffect(() => {
+        if (activeSection === 'history') {
+            loadSearchHistory();
+        }
+    }, [activeSection]);
 
     const loadFiles = async () => {
         try {
@@ -39,6 +47,22 @@ function AdminTab() {
             setUsers(response.data.users || []);
         } catch (err) {
             console.error('Error loading users:', err);
+        }
+    };
+
+    const loadSearchHistory = async () => {
+        setHistoryLoading(true);
+        setError(null);
+        try {
+            const response = await api.get('/admin/search-history', {
+                params: { limit: 100 },
+                timeout: 10000
+            });
+            setSearchHistory(response.data.history || []);
+        } catch (err) {
+            setError(err.response?.data?.error || err.message || 'שגיאה בטעינת היסטוריית חיפושים');
+        } finally {
+            setHistoryLoading(false);
         }
     };
 
@@ -144,6 +168,12 @@ function AdminTab() {
                         onClick={() => setActiveSection('users')}
                     >
                         ניהול הרשאות משתמשים
+                    </button>
+                    <button
+                        className={`section-button ${activeSection === 'history' ? 'active' : ''}`}
+                        onClick={() => setActiveSection('history')}
+                    >
+                        הסטורית חיפושים
                     </button>
                 </div>
 
@@ -251,6 +281,32 @@ function AdminTab() {
                                         'שמור הרשאות'
                                     )}
                                 </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeSection === 'history' && (
+                    <div className="history-section">
+                        <h3>הסטורית חיפושים – שאלות ותשובות משתמשים</h3>
+                        {historyLoading ? (
+                            <div className="loading">טוען...</div>
+                        ) : searchHistory.length === 0 ? (
+                            <div className="empty-state">אין עדיין היסטוריית חיפושים</div>
+                        ) : (
+                            <div className="search-history-list">
+                                {searchHistory.map((item) => (
+                                    <div key={item.id} className="history-item">
+                                        <div className="history-meta">
+                                            <span className="history-username">{item.username}</span>
+                                            <span className="history-date">
+                                                {item.created_at ? new Date(item.created_at).toLocaleString('he-IL') : ''}
+                                            </span>
+                                        </div>
+                                        <div className="history-question"><strong>שאלה:</strong> {item.question}</div>
+                                        <div className="history-answer"><strong>תשובה:</strong> {item.answer || '—'}</div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>

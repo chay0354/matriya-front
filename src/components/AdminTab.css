@@ -34,10 +34,68 @@
 }
 
 .files-section h3,
-.users-section h3 {
+.users-section h3,
+.history-section h3 {
     color: #ffffff;
     margin-bottom: 20px;
     font-size: 1.3em;
+}
+
+.history-section {
+    padding: 10px 0;
+}
+
+.search-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: 18px 20px;
+    background: rgba(15, 20, 40, 0.4);
+    border-radius: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    transition: all 0.3s ease;
+}
+
+.history-item:hover {
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+.history-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.history-username {
+    color: #667eea;
+    font-weight: 700;
+    font-size: 1em;
+}
+
+.history-date {
+    color: #8a8ab0;
+    font-size: 0.9em;
+}
+
+.history-question {
+    color: #e0e0e0;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.history-answer {
+    color: #c0c0e0;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .files-list {
