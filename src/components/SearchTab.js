@@ -23,8 +23,31 @@ function SearchTab() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [researchStage, setResearchStage] = useState(null);
     const [sessionId, setSessionId] = useState(null);
+    const [sessionLoading, setSessionLoading] = useState(true);
+
+    // Create research session on mount – required for every question (session_id + stage)
+    React.useEffect(() => {
+        let isMounted = true;
+        const createSession = async () => {
+            setSessionLoading(true);
+            try {
+                const res = await api.post('/research/session', {}, { timeout: 10000 });
+                if (isMounted && res.data?.session_id) setSessionId(res.data.session_id);
+            } catch (err) {
+                if (isMounted) setError('לא ניתן ליצור סשן מחקר. נא לרענן את הדף.');
+            } finally {
+                if (isMounted) setSessionLoading(false);
+            }
+        };
+        createSession();
+        return () => { isMounted = false; };
+    }, []);
 
     const handleSearch = async () => {
+        if (!sessionId) {
+            setError('סשן מחקר לא זמין. נא לרענן את הדף.');
+            return;
+        }
         if (!researchStage) {
             setError('נא לבחור שלב מחקר (K, C, B, N או L) לפני שליחת השאלה');
             return;
@@ -43,9 +66,9 @@ function SearchTab() {
                 query: query.trim(),
                 n_results: nResults,
                 generate_answer: true,
-                stage: researchStage
+                stage: researchStage,
+                session_id: sessionId
             };
-            if (sessionId) params.session_id = sessionId;
             if (selectedFile) params.filename = selectedFile;
 
             const response = await api.get('/search', {
@@ -164,6 +187,9 @@ function SearchTab() {
                 <h2>חיפוש במסמכים</h2>
 
                 <div className="research-stage-section">
+                    {sessionLoading && (
+                        <p className="stage-hint" style={{ color: '#a0a0c0' }}>יוצר סשן מחקר...</p>
+                    )}
                     <h3 className="stage-heading">שלב מחקר (חובה)</h3>
                     <p className="stage-hint">יש לבחור שלב לפני שליחת שאלה. מעבר שלבים: K → C → B → N → L</p>
                     <div className="stage-buttons">
@@ -197,7 +223,7 @@ function SearchTab() {
                     />
                     <button
                         onClick={handleSearch}
-                        disabled={isSearching || !researchStage}
+                        disabled={isSearching || !sessionId || !researchStage || sessionLoading}
                         className={`search-button ${isSearching ? 'loading' : ''}`}
                     >
                         {isSearching ? (
