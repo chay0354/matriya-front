@@ -2,6 +2,73 @@
     width: 100%;
 }
 
+.research-stage-section {
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: rgba(15, 20, 40, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(102, 126, 234, 0.25);
+}
+
+.stage-heading {
+    color: #e0e0e0;
+    font-size: 1.05em;
+    margin: 0 0 8px 0;
+}
+
+.stage-hint {
+    color: #8a8ab0;
+    font-size: 0.9em;
+    margin: 0 0 14px 0;
+}
+
+.stage-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.stage-button {
+    padding: 10px 20px;
+    background: rgba(15, 20, 40, 0.6);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: 10px;
+    color: #c0c0e0;
+    font-weight: 600;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.stage-button:hover {
+    border-color: rgba(102, 126, 234, 0.6);
+    background: rgba(102, 126, 234, 0.15);
+}
+
+.stage-button.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    color: white;
+}
+
+.stage-desc {
+    display: inline-block;
+    color: #a0a0c0;
+    font-size: 0.9em;
+}
+
+.research-stage-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(102, 126, 234, 0.25);
+    border-radius: 8px;
+    color: #a0b0ff;
+    font-size: 0.9em;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
 .search-box {
     display: flex;
     gap: 15px;

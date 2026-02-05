@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import api from '../utils/api';
 import './SearchTab.css';
 
+const RESEARCH_STAGES = [
+    { id: 'K', label: 'K', desc: 'מידע קיים בלבד (ללא פתרונות)' },
+    { id: 'C', label: 'C', desc: 'מידע מאומת (ללא פתרונות)' },
+    { id: 'B', label: 'B', desc: 'Hard Stop בלבד' },
+    { id: 'N', label: 'N', desc: 'מותר רק אחרי B' },
+    { id: 'L', label: 'L', desc: 'מותר רק אחרי N' }
+];
+
 function SearchTab() {
     const [query, setQuery] = useState('');
     const [nResults, setNResults] = useState(5);
@@ -13,8 +21,14 @@ function SearchTab() {
     const [error, setError] = useState(null);
     const [agentAnalysis, setAgentAnalysis] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [researchStage, setResearchStage] = useState(null);
+    const [sessionId, setSessionId] = useState(null);
 
     const handleSearch = async () => {
+        if (!researchStage) {
+            setError('נא לבחור שלב מחקר (K, C, B, N או L) לפני שליחת השאלה');
+            return;
+        }
         if (!query.trim()) {
             setError('אנא הכנס שאילתת חיפוש');
             return;
@@ -28,22 +42,23 @@ function SearchTab() {
             const params = {
                 query: query.trim(),
                 n_results: nResults,
-                generate_answer: true
+                generate_answer: true,
+                stage: researchStage
             };
-            
-            // Add filename filter if a specific file is selected
-            if (selectedFile) {
-                params.filename = selectedFile;
-            }
-            
-            const response = await api.get('/search', { 
+            if (sessionId) params.session_id = sessionId;
+            if (selectedFile) params.filename = selectedFile;
+
+            const response = await api.get('/search', {
                 params,
-                timeout: 60000  // 60 second timeout (Kernel processes through multiple agents)
+                timeout: 60000
             });
 
-            setResults(response.data);
+            const data = response.data;
+            setResults(data);
+            if (data.session_id) setSessionId(data.session_id);
         } catch (err) {
-            setError(err.response?.data?.detail || err.message || 'שגיאה בחיפוש');
+            const msg = err.response?.data?.error || err.response?.data?.detail || err.message;
+            setError(err.response?.data?.research_stage_error ? msg : (msg || 'שגיאה בחיפוש'));
         } finally {
             setIsSearching(false);
         }
@@ -147,6 +162,30 @@ function SearchTab() {
         <div className="search-tab">
             <div className="card">
                 <h2>חיפוש במסמכים</h2>
+
+                <div className="research-stage-section">
+                    <h3 className="stage-heading">שלב מחקר (חובה)</h3>
+                    <p className="stage-hint">יש לבחור שלב לפני שליחת שאלה. מעבר שלבים: K → C → B → N → L</p>
+                    <div className="stage-buttons">
+                        {RESEARCH_STAGES.map((s) => (
+                            <button
+                                key={s.id}
+                                type="button"
+                                className={`stage-button ${researchStage === s.id ? 'active' : ''}`}
+                                onClick={() => setResearchStage(s.id)}
+                                title={s.desc}
+                            >
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
+                    {researchStage && (
+                        <span className="stage-desc">
+                            {RESEARCH_STAGES.find((s) => s.id === researchStage)?.desc}
+                        </span>
+                    )}
+                </div>
+
                 <div className="search-box">
                     <input
                         type="text"
@@ -158,7 +197,7 @@ function SearchTab() {
                     />
                     <button
                         onClick={handleSearch}
-                        disabled={isSearching}
+                        disabled={isSearching || !researchStage}
                         className={`search-button ${isSearching ? 'loading' : ''}`}
                     >
                         {isSearching ? (
@@ -241,6 +280,9 @@ function SearchTab() {
                         )}
                         {results.answer && !results.blocked && (
                             <div className="ai-answer">
+                                {results.research_stage && (
+                                    <div className="research-stage-badge">שלב: {results.research_stage}</div>
+                                )}
                                 <h3>🤖 תשובה חכמה (Doc Agent):</h3>
                                 {results.warning && (
                                     <div className="warning-banner">
@@ -303,25 +345,6 @@ function SearchTab() {
                                         ? '🔍 ניתוח סתירות (Contradiction Agent)' 
                                         : '⚠️ ניתוח סיכונים (Risk Agent)'}
                                 </h3>
-                                <div className="agent-status">
-                                    {agentAnalysis.type === 'contradiction' ? (
-                                        agentAnalysis.has_contradictions ? (
-                                            <span className="status-badge warning">נמצאו סתירות</span>
-                                        ) : agentAnalysis.has_contradictions === false ? (
-                                            <span className="status-badge success">לא נמצאו סתירות</span>
-                                        ) : (
-                                            <span className="status-badge unknown">לא ניתן לבדוק</span>
-                                        )
-                                    ) : (
-                                        agentAnalysis.has_risks ? (
-                                            <span className="status-badge warning">נמצאו סיכונים</span>
-                                        ) : agentAnalysis.has_risks === false ? (
-                                            <span className="status-badge success">לא נמצאו סיכונים</span>
-                                        ) : (
-                                            <span className="status-badge unknown">לא ניתן לבדוק</span>
-                                        )
-                                    )}
-                                </div>
                                 <div className="agent-analysis-text">
                                     {agentAnalysis.analysis}
                                 </div>
