@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import './AdminTab.css';
 
-function AdminTab() {
+function AdminTab({ isAdmin }) {
     const [files, setFiles] = useState([]);
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -16,9 +16,13 @@ function AdminTab() {
     const [historyLoading, setHistoryLoading] = useState(false);
 
     useEffect(() => {
-        loadFiles();
-        loadUsers();
-    }, []);
+        if (isAdmin) {
+            loadFiles();
+            loadUsers();
+        } else {
+            setLoading(false);
+        }
+    }, [isAdmin]);
 
     useEffect(() => {
         if (activeSection === 'history') {
@@ -140,6 +144,16 @@ function AdminTab() {
             });
         }
     };
+
+    if (!isAdmin) {
+        return (
+            <div className="admin-tab">
+                <div className="card">
+                    <div className="empty-state">אין הרשאות ניהול</div>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

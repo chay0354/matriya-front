@@ -73,7 +73,14 @@ function App() {
     };
 
     const isAdmin = user && (user.is_admin || user.username === 'admin');
-    
+
+    // Ensure non-admins never stay on Admin tab (e.g. after auth state update)
+    React.useEffect(() => {
+        if (user && !isAdmin && activeTab === 'admin') {
+            setActiveTab('upload');
+        }
+    }, [user, isAdmin, activeTab]);
+
     const tabs = [
         { id: 'upload', label: 'העלאת מסמכים' },
         { id: 'search', label: 'חיפוש' },
@@ -138,7 +145,7 @@ function App() {
             <div className="tab-content-wrapper">
                 {activeTab === 'upload' && <UploadTab />}
                 {activeTab === 'search' && <SearchTab />}
-                {activeTab === 'admin' && <AdminTab />}
+                {activeTab === 'admin' && isAdmin && <AdminTab isAdmin={isAdmin} />}
             </div>
         </div>
     );
