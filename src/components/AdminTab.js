@@ -593,7 +593,6 @@ function IntegrityChart({ points, violations, fullViolations, onPointClick, onVi
 }
 
 function ViolationModal({ item, onClose, onResolve, resolvingId, resolveNote, setResolveNote }) {
-    const isResolve = item && item._action === 'resolve';
     const v = item && item.id ? item : null;
 
     return (
