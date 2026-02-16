@@ -9,11 +9,17 @@ function AdminTab({ isAdmin }) {
     const [userPermissions, setUserPermissions] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeSection, setActiveSection] = useState('files'); // 'files' | 'users' | 'history'
+    const [activeSection, setActiveSection] = useState('files'); // 'files' | 'users' | 'history' | 'integrity'
     const [deletingFile, setDeletingFile] = useState(null);
     const [savingPermissions, setSavingPermissions] = useState(false);
     const [searchHistory, setSearchHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+    // B-Integrity dashboard
+    const [dashboard, setDashboard] = useState(null);
+    const [dashboardLoading, setDashboardLoading] = useState(false);
+    const [violationModal, setViolationModal] = useState(null);
+    const [resolvingId, setResolvingId] = useState(null);
+    const [resolveNote, setResolveNote] = useState('');
 
     useEffect(() => {
         if (isAdmin) {
@@ -27,6 +33,9 @@ function AdminTab({ isAdmin }) {
     useEffect(() => {
         if (activeSection === 'history') {
             loadSearchHistory();
+        }
+        if (activeSection === 'integrity') {
+            loadIntegrityDashboard();
         }
     }, [activeSection]);
 
@@ -145,6 +154,38 @@ function AdminTab({ isAdmin }) {
         }
     };
 
+    const loadIntegrityDashboard = async () => {
+        setDashboardLoading(true);
+        setError(null);
+        try {
+            const response = await api.get('/admin/recovery/dashboard', { params: { limit: 100 }, timeout: 10000 });
+            setDashboard(response.data);
+        } catch (err) {
+            setError(err.response?.data?.error || err.message || 'שגיאה בטעינת דשבורד B-Integrity');
+        } finally {
+            setDashboardLoading(false);
+        }
+    };
+
+    const handleResolveViolation = async (id) => {
+        setResolvingId(id);
+        try {
+            await api.patch(`/admin/recovery/violations/${id}`, { resolve_note: resolveNote || undefined }, { timeout: 5000 });
+            setViolationModal(null);
+            setResolveNote('');
+            loadIntegrityDashboard();
+        } catch (err) {
+            alert(err.response?.data?.error || err.message || 'שגיאה בשחרור נעילה');
+        } finally {
+            setResolvingId(null);
+        }
+    };
+
+    const formatGateStatus = (s) => {
+        const map = { HEALTHY: 'תקין', HALTED: 'נעול', RECOVERY: 'החלמה' };
+        return map[s] || s;
+    };
+
     if (!isAdmin) {
         return (
             <div className="admin-tab">
@@ -188,6 +229,12 @@ function AdminTab({ isAdmin }) {
                         onClick={() => setActiveSection('history')}
                     >
                         הסטורית חיפושים
+                    </button>
+                    <button
+                        className={`section-button ${activeSection === 'integrity' ? 'active' : ''}`}
+                        onClick={() => setActiveSection('integrity')}
+                    >
+                        דשבורד B-Integrity
                     </button>
                 </div>
 
@@ -325,6 +372,264 @@ function AdminTab({ isAdmin }) {
                         )}
                     </div>
                 )}
+
+                {activeSection === 'integrity' && (
+                    <div className="integrity-section">
+                        <h3>דשבורד B-Integrity</h3>
+                        {dashboardLoading ? (
+                            <div className="loading">טוען...</div>
+                        ) : !dashboard ? (
+                            <div className="empty-state">לא נטען דשבורד</div>
+                        ) : (
+                            <>
+                                <div className="integrity-status-panel">
+                                    <div className="status-row">
+                                        <span className="status-label">מצב גייט:</span>
+                                        <span className={`status-badge status-${(dashboard.gate_status || '').toLowerCase()}`}>
+                                            {formatGateStatus(dashboard.gate_status)}
+                                        </span>
+                                    </div>
+                                    <div className="status-row">
+                                        <span className="status-label">מחזור נוכחי:</span>
+                                        <span className="status-value">{dashboard.current_cycle ?? 0}</span>
+                                    </div>
+                                    <div className="status-row">
+                                        <span className="status-label">|𝓜| נוכחי:</span>
+                                        <span className="status-value">{dashboard.current_m ?? 0}</span>
+                                    </div>
+                                    <div className="status-row">
+                                        <span className="status-label">מחזורים מאז סגירה אחרונה:</span>
+                                        <span className="status-value">{dashboard.cycles_since_last_closure ?? 0}</span>
+                                    </div>
+                                </div>
+
+                                <div className="integrity-chart-block">
+                                    <h4>|𝓜| לאורך זמן</h4>
+                                    <IntegrityChart
+                                        points={dashboard.chart?.points || []}
+                                        violations={dashboard.chart?.violations || []}
+                                        fullViolations={dashboard.violations || []}
+                                        onPointClick={(p) => setViolationModal(p)}
+                                        onViolationClick={(v) => setViolationModal(v)}
+                                    />
+                                </div>
+
+                                <div className="integrity-violations-block">
+                                    <h4>הפרות אחרונות</h4>
+                                    <div className="violations-table-wrap">
+                                        <table className="violations-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>תאריך</th>
+                                                    <th>סוג</th>
+                                                    <th>סיבה</th>
+                                                    <th>סשן</th>
+                                                    <th>סטטוס</th>
+                                                    <th>פעולה</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(dashboard.violations || []).map((v) => (
+                                                    <tr key={v.id}>
+                                                        <td>{v.created_at ? new Date(v.created_at).toLocaleString('he-IL') : '—'}</td>
+                                                        <td>{v.type || '—'}</td>
+                                                        <td>
+                                                            <button
+                                                                type="button"
+                                                                className="link-like"
+                                                                onClick={() => setViolationModal(v)}
+                                                            >
+                                                                {v.reason || '—'}
+                                                            </button>
+                                                        </td>
+                                                        <td className="session-cell">{v.session_id ? String(v.session_id).slice(0, 8) + '…' : '—'}</td>
+                                                        <td>{v.resolved_at ? 'מטופל' : 'פעיל'}</td>
+                                                        <td>
+                                                            {!v.resolved_at && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="unlock-button"
+                                                                    onClick={() => setViolationModal({ ...v, _action: 'resolve' })}
+                                                                >
+                                                                    שחרר נעילה
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        {(!dashboard.violations || dashboard.violations.length === 0) && (
+                                            <div className="empty-state small">אין הפרות</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {violationModal && (
+                                    <ViolationModal
+                                        item={violationModal}
+                                        onClose={() => { setViolationModal(null); setResolveNote(''); }}
+                                        onResolve={handleResolveViolation}
+                                        resolvingId={resolvingId}
+                                        resolveNote={resolveNote}
+                                        setResolveNote={setResolveNote}
+                                    />
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function IntegrityChart({ points, violations, fullViolations, onPointClick, onViolationClick }) {
+    const [hoveredIndex, setHoveredIndex] = React.useState(null);
+
+    if (!points.length) {
+        return <div className="chart-empty">אין עדיין נתוני מחזורים</div>;
+    }
+    const values = points.map(p => p.value);
+    let minV = Math.min(...values);
+    let maxV = Math.max(...values);
+    const flat = minV === maxV;
+    if (flat) {
+        minV = Math.min(0, minV - 1);
+        maxV = maxV + 1;
+    }
+    const range = maxV - minV || 1;
+    const height = 260;
+    const width = Math.max(480, points.length * 24);
+    const padding = { top: 28, right: 32, bottom: 44, left: 52 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+    const xScale = (i) => padding.left + (i / (points.length - 1 || 1)) * chartW;
+    const yScale = (val) => padding.top + chartH - ((val - minV) / range) * chartH;
+
+    const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(p.value)}`).join(' ');
+    const violationByIndex = {};
+    const fullById = (fullViolations || []).reduce((acc, f) => { acc[f.id] = f; return acc; }, {});
+    (violations || []).forEach((v) => {
+        if (!v.t) return;
+        const pointTimes = points.map(p => new Date(p.t).getTime());
+        const vTime = new Date(v.t).getTime();
+        let best = 0;
+        let bestDiff = Math.abs(pointTimes[0] - vTime);
+        pointTimes.forEach((t, i) => {
+            const d = Math.abs(t - vTime);
+            if (d < bestDiff) { bestDiff = d; best = i; }
+        });
+        violationByIndex[best] = fullById[v.id] || v;
+    });
+
+    const yTicks = 5;
+    const yTickValues = [];
+    for (let i = 0; i <= yTicks; i++) {
+        yTickValues.push(minV + (range * i) / yTicks);
+    }
+    const xTickStep = Math.max(1, Math.floor(points.length / 8));
+    const xTickIndices = [];
+    for (let i = 0; i < points.length; i += xTickStep) xTickIndices.push(i);
+    if (points.length - 1 !== xTickIndices[xTickIndices.length - 1]) xTickIndices.push(points.length - 1);
+
+    const hoveredPoint = hoveredIndex != null ? points[hoveredIndex] : null;
+    const tooltipLeftPct = hoveredIndex != null ? (xScale(hoveredIndex) / width) * 100 : 0;
+    const tooltipTopPct = hoveredPoint != null ? (yScale(hoveredPoint.value) / height) * 100 : 0;
+    const showTooltipBelow = tooltipTopPct < 35;
+
+    return (
+        <div className="integrity-chart-wrap">
+            {hoveredPoint && (
+                <div className="chart-tooltip" style={{
+                    left: `${tooltipLeftPct}%`,
+                    top: `${tooltipTopPct}%`,
+                    transform: showTooltipBelow ? 'translate(-50%, 0) translateY(12px)' : 'translate(-50%, -100%) translateY(-12px)'
+                }}>
+                    <div className="chart-tooltip-row"><strong>מחזור:</strong> {hoveredIndex + 1}</div>
+                    <div className="chart-tooltip-row"><strong>|𝓜|:</strong> {hoveredPoint.value}</div>
+                    <div className="chart-tooltip-row"><strong>תאריך:</strong> {hoveredPoint.t ? new Date(hoveredPoint.t).toLocaleString('he-IL') : '—'}</div>
+                    {violationByIndex[hoveredIndex] && <div className="chart-tooltip-badge">הפרה</div>}
+                </div>
+            )}
+            <svg className="integrity-chart" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+                {/* Grid lines */}
+                {yTickValues.map((v, i) => (
+                    <line key={`hy-${i}`} className="chart-grid" x1={padding.left} y1={yScale(v)} x2={padding.left + chartW} y2={yScale(v)} />
+                ))}
+                {xTickIndices.map((i) => (
+                    <line key={`vx-${i}`} className="chart-grid" x1={xScale(i)} y1={padding.top} x2={xScale(i)} y2={padding.top + chartH} />
+                ))}
+                {/* Y-axis labels */}
+                {yTickValues.map((v, i) => (
+                    <text key={`yt-${i}`} className="chart-axis-label" x={padding.left - 8} y={yScale(v)} textAnchor="end" dominantBaseline="middle">{Math.round(v)}</text>
+                ))}
+                <text x={14} y={padding.top + chartH / 2} className="chart-axis-title" textAnchor="middle" transform={`rotate(-90, 14, ${padding.top + chartH / 2})`}>|𝓜|</text>
+                {/* X-axis labels */}
+                {xTickIndices.map((i) => (
+                    <text key={`xt-${i}`} className="chart-axis-label" x={xScale(i)} y={height - 14} textAnchor="middle">{i + 1}</text>
+                ))}
+                <text x={padding.left + chartW / 2} y={height - 4} className="chart-axis-title" textAnchor="middle">מחזור</text>
+                {/* Line and points */}
+                <path className="chart-line" d={pathD} fill="none" strokeWidth="2" />
+                {points.map((p, i) => {
+                    const violation = violationByIndex[i];
+                    return (
+                        <circle
+                            key={i}
+                            className={violation ? 'chart-point violation-point' : 'chart-point'}
+                            cx={xScale(i)}
+                            cy={yScale(p.value)}
+                            r={violation ? 6 : 5}
+                            onClick={() => violation ? onViolationClick(violation) : onPointClick(p)}
+                            onMouseEnter={() => setHoveredIndex(i)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                        />
+                    );
+                })}
+            </svg>
+        </div>
+    );
+}
+
+function ViolationModal({ item, onClose, onResolve, resolvingId, resolveNote, setResolveNote }) {
+    const isResolve = item && item._action === 'resolve';
+    const v = item && item.id ? item : null;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content integrity-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h4>{v ? 'פרטי הפרה' : 'נקודת מחזור'}</h4>
+                    <button type="button" className="modal-close" onClick={onClose} aria-label="סגור">×</button>
+                </div>
+                <div className="modal-body">
+                    {v && (
+                        <>
+                            <p><strong>מזהה:</strong> {v.id}</p>
+                            <p><strong>סשן:</strong> {v.session_id}</p>
+                            <p><strong>סוג:</strong> {v.type}</p>
+                            <p><strong>סיבה:</strong> {v.reason}</p>
+                            {v.details && <p><strong>פרטים:</strong> <pre>{JSON.stringify(v.details, null, 2)}</pre></p>}
+                            <p><strong>נוצר:</strong> {v.created_at ? new Date(v.created_at).toLocaleString('he-IL') : '—'}</p>
+                            {v.resolved_at && (
+                                <p><strong>טופל:</strong> {v.resolved_at ? new Date(v.resolved_at).toLocaleString('he-IL') : '—'} {v.resolve_note && ` – ${v.resolve_note}`}</p>
+                            )}
+                            {!v.resolved_at && (
+                                <div className="resolve-form">
+                                    <label>הערה לשחרור (אופציונלי):</label>
+                                    <input type="text" value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="הערה..." />
+                                    <button type="button" className="unlock-button" disabled={resolvingId === v.id} onClick={() => onResolve(v.id)}>
+                                        {resolvingId === v.id ? 'משחרר...' : 'אישור שחרור / Unlock'}
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                    {!v && item && (
+                        <p>מחזור: {item.cycle_index != null ? item.cycle_index : '—'} | ערך: {item.value} | תאריך: {item.t ? new Date(item.t).toLocaleString('he-IL') : '—'}</p>
+                    )}
+                </div>
             </div>
         </div>
     );
