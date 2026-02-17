@@ -24,6 +24,7 @@ function SearchTab() {
     const [researchStage, setResearchStage] = useState(null);
     const [sessionId, setSessionId] = useState(null);
     const [sessionLoading, setSessionLoading] = useState(true);
+    const [answerMode, setAnswerMode] = useState('quick'); // 'quick' = GET /search (stage required) | 'agents' = POST /api/research/run (4 agents)
 
     // Create research session on mount – required for every question (session_id + stage)
     React.useEffect(() => {
@@ -48,7 +49,7 @@ function SearchTab() {
             setError('סשן מחקר לא זמין. נא לרענן את הדף.');
             return;
         }
-        if (!researchStage) {
+        if (answerMode === 'quick' && !researchStage) {
             setError('נא לבחור שלב מחקר (K, C, B, N או L) לפני שליחת השאלה');
             return;
         }
@@ -62,23 +63,45 @@ function SearchTab() {
         setResults(null);
 
         try {
-            const params = {
-                query: query.trim(),
-                n_results: nResults,
-                generate_answer: true,
-                stage: researchStage,
-                session_id: sessionId
-            };
-            if (selectedFile) params.filename = selectedFile;
+            if (answerMode === 'agents') {
+                const body = {
+                    session_id: sessionId,
+                    query: query.trim(),
+                    use_4_agents: true
+                };
+                if (selectedFile) body.filename = selectedFile;
+                const response = await api.post('/api/research/run', body, { timeout: 120000 });
+                const data = response.data;
+                setResults({
+                    answer: data.outputs?.synthesis || data.outputs?.research || data.outputs?.analysis || '',
+                    use_4_agents: true,
+                    outputs: data.outputs,
+                    justifications: data.justifications,
+                    stopped_by_violation: data.stopped_by_violation,
+                    violation_id: data.violation_id,
+                    message: data.message,
+                    results_count: 0,
+                    results: []
+                });
+            } else {
+                const params = {
+                    query: query.trim(),
+                    n_results: nResults,
+                    generate_answer: true,
+                    stage: researchStage,
+                    session_id: sessionId
+                };
+                if (selectedFile) params.filename = selectedFile;
 
-            const response = await api.get('/search', {
-                params,
-                timeout: 60000
-            });
+                const response = await api.get('/search', {
+                    params,
+                    timeout: 60000
+                });
 
-            const data = response.data;
-            setResults(data);
-            if (data.session_id) setSessionId(data.session_id);
+                const data = response.data;
+                setResults(data);
+                if (data.session_id) setSessionId(data.session_id);
+            }
         } catch (err) {
             const msg = err.response?.data?.error || err.response?.data?.detail || err.message;
             setError(err.response?.data?.research_stage_error ? msg : (msg || 'שגיאה בחיפוש'));
@@ -186,31 +209,58 @@ function SearchTab() {
             <div className="card">
                 <h2>חיפוש במסמכים</h2>
 
-                <div className="research-stage-section">
-                    {sessionLoading && (
-                        <p className="stage-hint" style={{ color: '#a0a0c0' }}>יוצר סשן מחקר...</p>
-                    )}
-                    <h3 className="stage-heading">שלב מחקר (חובה)</h3>
-                    <p className="stage-hint">יש לבחור שלב לפני שליחת שאלה. מעבר שלבים: K → C → B → N → L</p>
-                    <div className="stage-buttons">
-                        {RESEARCH_STAGES.map((s) => (
-                            <button
-                                key={s.id}
-                                type="button"
-                                className={`stage-button ${researchStage === s.id ? 'active' : ''}`}
-                                onClick={() => setResearchStage(s.id)}
-                                title={s.desc}
-                            >
-                                {s.label}
-                            </button>
-                        ))}
+                <div className="answer-mode-section">
+                    <h3 className="stage-heading">אופן תשובה</h3>
+                    <div className="mode-buttons">
+                        <button
+                            type="button"
+                            className={`mode-button ${answerMode === 'quick' ? 'active' : ''}`}
+                            onClick={() => setAnswerMode('quick')}
+                            title="תשובה אחת מהירה (שלב מחקר K→C→B→N→L)"
+                        >
+                            סוכני מחקר
+                        </button>
+                        <button
+                            type="button"
+                            className={`mode-button ${answerMode === 'agents' ? 'active' : ''}`}
+                            onClick={() => setAnswerMode('agents')}
+                            title="4 סוכנים: ניתוח → מחקר → ביקורת → סינתזה"
+                        >
+                            4 סוכנים
+                        </button>
                     </div>
-                    {researchStage && (
-                        <span className="stage-desc">
-                            {RESEARCH_STAGES.find((s) => s.id === researchStage)?.desc}
-                        </span>
-                    )}
+                    <p className="stage-hint">
+                        {answerMode === 'quick' ? 'תשובה אחת מהירה לפי שלב מחקר (K→C→B→N→L).' : 'שרשרת 4 סוכנים (analysis → research → critic → synthesis) עם Integrity Monitor.'}
+                    </p>
                 </div>
+
+                {answerMode === 'quick' && (
+                    <div className="research-stage-section">
+                        {sessionLoading && (
+                            <p className="stage-hint" style={{ color: '#a0a0c0' }}>יוצר סשן מחקר...</p>
+                        )}
+                        <h3 className="stage-heading">שלב מחקר (חובה)</h3>
+                        <p className="stage-hint">יש לבחור שלב לפני שליחת שאלה. מעבר שלבים: K → C → B → N → L</p>
+                        <div className="stage-buttons">
+                            {RESEARCH_STAGES.map((s) => (
+                                <button
+                                    key={s.id}
+                                    type="button"
+                                    className={`stage-button ${researchStage === s.id ? 'active' : ''}`}
+                                    onClick={() => setResearchStage(s.id)}
+                                    title={s.desc}
+                                >
+                                    {s.label}
+                                </button>
+                            ))}
+                        </div>
+                        {researchStage && (
+                            <span className="stage-desc">
+                                {RESEARCH_STAGES.find((s) => s.id === researchStage)?.desc}
+                            </span>
+                        )}
+                    </div>
+                )}
 
                 <div className="search-box">
                     <input
@@ -223,7 +273,7 @@ function SearchTab() {
                     />
                     <button
                         onClick={handleSearch}
-                        disabled={isSearching || !sessionId || !researchStage || sessionLoading}
+                        disabled={isSearching || !sessionId || (answerMode === 'quick' && !researchStage) || sessionLoading}
                         className={`search-button ${isSearching ? 'loading' : ''}`}
                     >
                         {isSearching ? (
@@ -284,7 +334,7 @@ function SearchTab() {
                     <div className="loading">
                         <div>מחפש במסמכים...</div>
                         <div style={{ marginTop: '15px', fontSize: '0.95em', color: '#a0a0c0' }}>
-                            🤖 מייצר תשובה חכמה באמצעות AI...
+                            {answerMode === 'agents' ? '🤖 מריץ 4 סוכנים (ניתוח → מחקר → ביקורת → סינתזה)...' : '🤖 מייצר תשובה חכמה באמצעות AI...'}
                         </div>
                     </div>
                 )}
@@ -304,12 +354,26 @@ function SearchTab() {
                                 )}
                             </div>
                         )}
+                        {results.stopped_by_violation && (
+                            <div className="blocked-message">
+                                <h3>⛔ נעצר על ידי Integrity Monitor</h3>
+                                <div className="blocked-text">
+                                    {results.message || 'נוצרה הפרת B-Integrity. יש לטפל בהפרה בדשבורד ניהול.'}
+                                </div>
+                                {results.violation_id && (
+                                    <div className="state-badge blocked-state">מזהה הפרה: {results.violation_id}</div>
+                                )}
+                            </div>
+                        )}
                         {results.answer && !results.blocked && (
                             <div className="ai-answer">
-                                {results.research_stage && (
+                                {results.use_4_agents && (
+                                    <div className="research-stage-badge">4 סוכנים – סינתזה</div>
+                                )}
+                                {results.research_stage && !results.use_4_agents && (
                                     <div className="research-stage-badge">שלב: {results.research_stage}</div>
                                 )}
-                                <h3>🤖 תשובה חכמה (Doc Agent):</h3>
+                                <h3>🤖 {results.use_4_agents ? 'תשובה (סינתזה):' : 'תשובה חכמה (Doc Agent):'}</h3>
                                 {results.warning && (
                                     <div className="warning-banner">
                                         ⚠️ {results.warning}
@@ -321,11 +385,34 @@ function SearchTab() {
                                     </div>
                                 )}
                                 <div className="answer-text">{results.answer}</div>
+                                {results.use_4_agents && results.outputs && (
+                                    <details className="four-agents-outputs">
+                                        <summary>פלטי כל הסוכנים</summary>
+                                        <div className="agent-outputs-list">
+                                            {Object.entries(results.outputs).map(([name, text]) => (
+                                                <div key={name} className="agent-output-item">
+                                                    <strong>{name}:</strong> {text || '—'}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {results.justifications && results.justifications.length > 0 && (
+                                            <div className="justifications-list">
+                                                <strong>הצדקות שינוי:</strong>
+                                                <ul>
+                                                    {results.justifications.map((j, i) => (
+                                                        <li key={i}>{j.agent}: {j.reason}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </details>
+                                )}
                                 {results.context_sources && (
                                     <div className="answer-sources">
                                         מבוסס על {results.context_sources} מקורות מהמסמכים
                                     </div>
                                 )}
+                                {!results.use_4_agents && (
                                 <div className="agent-actions">
                                     <button
                                         onClick={() => handleAgentCheck('contradiction')}
@@ -356,6 +443,7 @@ function SearchTab() {
                                         )}
                                     </button>
                                 </div>
+                                )}
                             </div>
                         )}
                         {!results.answer && results.results_count > 0 && (
@@ -377,6 +465,8 @@ function SearchTab() {
                             </div>
                         )}
                         
+                        {!results.use_4_agents && (
+                        <>
                         <h3>נמצאו {results.results_count} תוצאות:</h3>
                         {results.results_count === 0 ? (
                             <div className="empty-state">לא נמצאו תוצאות</div>
@@ -399,6 +489,8 @@ function SearchTab() {
                                     )}
                                 </div>
                             ))
+                        )}
+                        </>
                         )}
                     </div>
                 )}

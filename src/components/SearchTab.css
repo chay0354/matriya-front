@@ -58,6 +58,44 @@
     font-size: 0.9em;
 }
 
+.answer-mode-section {
+    margin-bottom: 20px;
+    padding: 14px 18px;
+    background: rgba(15, 20, 40, 0.35);
+    border-radius: 12px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.mode-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.mode-button {
+    padding: 10px 22px;
+    background: rgba(15, 20, 40, 0.6);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: 10px;
+    color: #c0c0e0;
+    font-weight: 600;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mode-button:hover {
+    border-color: rgba(102, 126, 234, 0.6);
+    background: rgba(102, 126, 234, 0.15);
+}
+
+.mode-button.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    color: white;
+}
+
 .research-stage-badge {
     display: inline-block;
     padding: 4px 12px;
@@ -330,6 +368,51 @@
     font-style: italic;
     margin-top: 12px;
     opacity: 0.9;
+}
+
+.four-agents-outputs {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(15, 20, 40, 0.5);
+    border-radius: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.four-agents-outputs summary {
+    cursor: pointer;
+    color: #a0b0ff;
+    font-weight: 600;
+}
+
+.agent-outputs-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.agent-output-item {
+    color: #c0c0e0;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.agent-output-item strong {
+    color: #667eea;
+    margin-left: 6px;
+}
+
+.justifications-list {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(102, 126, 234, 0.2);
+    color: #a0a0c0;
+    font-size: 0.9em;
+}
+
+.justifications-list ul {
+    margin: 6px 0 0 0;
+    padding-right: 20px;
 }
 
 .info-message {
