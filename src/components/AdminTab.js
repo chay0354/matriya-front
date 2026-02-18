@@ -52,6 +52,7 @@ function AdminTab({ isAdmin }) {
         if (activeSection === 'global') {
             loadGlobalMetrics();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loaders are stable and defined below
     }, [activeSection]);
 
     const loadFiles = async () => {
