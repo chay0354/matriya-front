@@ -9,7 +9,7 @@ function AdminTab({ isAdmin }) {
     const [userPermissions, setUserPermissions] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeSection, setActiveSection] = useState('files'); // 'files' | 'users' | 'history' | 'integrity'
+    const [activeSection, setActiveSection] = useState('files'); // 'files' | 'users' | 'history' | 'integrity' | 'global'
     const [deletingFile, setDeletingFile] = useState(null);
     const [savingPermissions, setSavingPermissions] = useState(false);
     const [searchHistory, setSearchHistory] = useState([]);
@@ -20,6 +20,17 @@ function AdminTab({ isAdmin }) {
     const [violationModal, setViolationModal] = useState(null);
     const [resolvingId, setResolvingId] = useState(null);
     const [resolveNote, setResolveNote] = useState('');
+    // Dashboard filters
+    const [filterFromDate, setFilterFromDate] = useState('');
+    const [filterToDate, setFilterToDate] = useState('');
+    const [filterViolationStatus, setFilterViolationStatus] = useState('all');
+    const [filterViolationType, setFilterViolationType] = useState('');
+    // Global metrics
+    const [globalMetrics, setGlobalMetrics] = useState(null);
+    const [globalMetricsLoading, setGlobalMetricsLoading] = useState(false);
+    // Risk Oracle (B-Integrity)
+    const [oracle, setOracle] = useState(null);
+    const [oracleLoading, setOracleLoading] = useState(false);
 
     useEffect(() => {
         if (isAdmin) {
@@ -36,6 +47,10 @@ function AdminTab({ isAdmin }) {
         }
         if (activeSection === 'integrity') {
             loadIntegrityDashboard();
+            loadOracle();
+        }
+        if (activeSection === 'global') {
+            loadGlobalMetrics();
         }
     }, [activeSection]);
 
@@ -158,12 +173,56 @@ function AdminTab({ isAdmin }) {
         setDashboardLoading(true);
         setError(null);
         try {
-            const response = await api.get('/admin/recovery/dashboard', { params: { limit: 100 }, timeout: 10000 });
+            const params = { limit: 200 };
+            if (filterFromDate) params.from_date = filterFromDate;
+            if (filterToDate) params.to_date = filterToDate;
+            if (filterViolationStatus !== 'all') params.violation_status = filterViolationStatus;
+            if (filterViolationType) params.violation_type = filterViolationType;
+            const response = await api.get('/admin/recovery/dashboard', { params, timeout: 10000 });
             setDashboard(response.data);
         } catch (err) {
             setError(err.response?.data?.error || err.message || 'שגיאה בטעינת דשבורד B-Integrity');
         } finally {
             setDashboardLoading(false);
+        }
+    };
+
+    const applyDashboardFilters = () => {
+        loadIntegrityDashboard();
+    };
+
+    const exportDashboardCsv = (kind) => {
+        if (!dashboard) return;
+        const BOM = '\uFEFF';
+        if (kind === 'violations') {
+            const rows = (dashboard.violations || []).map(v => ({
+                id: v.id,
+                session_id: v.session_id,
+                type: v.type || '',
+                reason: (v.reason || '').replace(/"/g, '""'),
+                created_at: v.created_at || '',
+                resolved_at: v.resolved_at || '',
+                resolve_note: (v.resolve_note || '').replace(/"/g, '""')
+            }));
+            const headers = ['id', 'session_id', 'type', 'reason', 'created_at', 'resolved_at', 'resolve_note'];
+            const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${String(r[h] ?? '')}"`).join(','))].join('\r\n');
+            const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `integrity-violations-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } else {
+            const points = dashboard.chart?.points || [];
+            const rows = points.map((p, i) => ({ cycle_index: i + 1, value: p.value, t: p.t || '', session_id: p.session_id || '' }));
+            const headers = ['cycle_index', 'value', 't', 'session_id'];
+            const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${String(r[h] ?? '')}"`).join(','))].join('\r\n');
+            const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `integrity-chart-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
         }
     };
 
@@ -184,6 +243,31 @@ function AdminTab({ isAdmin }) {
     const formatGateStatus = (s) => {
         const map = { HEALTHY: 'תקין', HALTED: 'נעול', RECOVERY: 'החלמה' };
         return map[s] || s;
+    };
+
+    const loadGlobalMetrics = async () => {
+        setGlobalMetricsLoading(true);
+        setError(null);
+        try {
+            const response = await api.get('/admin/metrics/global', { timeout: 10000 });
+            setGlobalMetrics(response.data);
+        } catch (err) {
+            setError(err.response?.data?.error || err.message || 'שגיאה בטעינת מדדי גלובל');
+        } finally {
+            setGlobalMetricsLoading(false);
+        }
+    };
+
+    const loadOracle = async () => {
+        setOracleLoading(true);
+        try {
+            const response = await api.get('/admin/recovery/oracle', { timeout: 10000 });
+            setOracle(response.data);
+        } catch (err) {
+            setOracle(null);
+        } finally {
+            setOracleLoading(false);
+        }
     };
 
     if (!isAdmin) {
@@ -235,6 +319,12 @@ function AdminTab({ isAdmin }) {
                         onClick={() => setActiveSection('integrity')}
                     >
                         דשבורד B-Integrity
+                    </button>
+                    <button
+                        className={`section-button ${activeSection === 'global' ? 'active' : ''}`}
+                        onClick={() => setActiveSection('global')}
+                    >
+                        מדדי גלובל
                     </button>
                 </div>
 
@@ -376,6 +466,35 @@ function AdminTab({ isAdmin }) {
                 {activeSection === 'integrity' && (
                     <div className="integrity-section">
                         <h3>דשבורד B-Integrity</h3>
+                        <div className="dashboard-toolbar">
+                            <div className="dashboard-filters">
+                                <div className="filter-group">
+                                    <label>מתאריך</label>
+                                    <input type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} className="filter-input" />
+                                </div>
+                                <div className="filter-group">
+                                    <label>עד תאריך</label>
+                                    <input type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} className="filter-input" />
+                                </div>
+                                <div className="filter-group">
+                                    <label>סטטוס הפרות</label>
+                                    <select value={filterViolationStatus} onChange={e => setFilterViolationStatus(e.target.value)} className="filter-select">
+                                        <option value="all">הכל</option>
+                                        <option value="active">פעיל בלבד</option>
+                                        <option value="resolved">מטופל בלבד</option>
+                                    </select>
+                                </div>
+                                <div className="filter-group">
+                                    <label>סוג הפרה</label>
+                                    <input type="text" value={filterViolationType} onChange={e => setFilterViolationType(e.target.value)} placeholder="סינון לפי סוג" className="filter-input filter-input-text" />
+                                </div>
+                                <button type="button" className="filter-apply-btn" onClick={applyDashboardFilters}>החל סינון</button>
+                            </div>
+                            <div className="dashboard-export">
+                                <button type="button" className="export-csv-btn" onClick={() => exportDashboardCsv('violations')} disabled={!dashboard || !(dashboard.violations || []).length}>ייצוא CSV הפרות</button>
+                                <button type="button" className="export-csv-btn" onClick={() => exportDashboardCsv('chart')} disabled={!dashboard || !(dashboard.chart?.points || []).length}>ייצוא CSV גרף</button>
+                            </div>
+                        </div>
                         {dashboardLoading ? (
                             <div className="loading">טוען...</div>
                         ) : !dashboard ? (
@@ -403,6 +522,24 @@ function AdminTab({ isAdmin }) {
                                     </div>
                                 </div>
 
+                                <div className="integrity-oracle-block">
+                                    <h4>חיזוי סיכונים (Oracle)</h4>
+                                    {oracleLoading ? (
+                                        <div className="loading small">טוען...</div>
+                                    ) : oracle && (oracle.risks || []).length > 0 ? (
+                                        <ul className="oracle-risks-list">
+                                            {(oracle.risks || []).map((r, i) => (
+                                                <li key={r.id || i} className={`oracle-risk severity-${r.severity || 'low'}`}>
+                                                    <span className="oracle-risk-badge">{r.severity === 'high' ? 'גבוה' : r.severity === 'medium' ? 'בינוני' : 'נמוך'}</span>
+                                                    <span className="oracle-risk-message">{r.message}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="oracle-no-risks">אין סיכונים מזוהים כרגע</div>
+                                    )}
+                                </div>
+
                                 <div className="integrity-chart-block">
                                     <h4>|𝓜| לאורך זמן</h4>
                                     <IntegrityChart
@@ -412,6 +549,17 @@ function AdminTab({ isAdmin }) {
                                         onPointClick={(p) => setViolationModal(p)}
                                         onViolationClick={(v) => setViolationModal(v)}
                                     />
+                                </div>
+
+                                <div className="integrity-charts-row">
+                                    <div className="integrity-chart-block chart-half">
+                                        <h4>הפרות לפי סוג</h4>
+                                        <ViolationsByTypeChart violations={dashboard.violations || []} />
+                                    </div>
+                                    <div className="integrity-chart-block chart-half">
+                                        <h4>הפרות לאורך זמן</h4>
+                                        <ViolationsOverTimeChart violations={dashboard.violations || []} />
+                                    </div>
                                 </div>
 
                                 <div className="integrity-violations-block">
@@ -476,6 +624,60 @@ function AdminTab({ isAdmin }) {
                                     />
                                 )}
                             </>
+                        )}
+                    </div>
+                )}
+
+                {activeSection === 'global' && (
+                    <div className="global-metrics-section">
+                        <h3>מדדי גלובל</h3>
+                        {globalMetricsLoading ? (
+                            <div className="loading">טוען...</div>
+                        ) : !globalMetrics ? (
+                            <div className="empty-state">לא נטענו מדדים</div>
+                        ) : (
+                            <div className="global-metrics-grid">
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">משתמשים</span>
+                                    <span className="global-metric-value">{globalMetrics.users ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">סשנים (מחקר)</span>
+                                    <span className="global-metric-value">{globalMetrics.research_sessions ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">היסטוריית חיפושים</span>
+                                    <span className="global-metric-value">{globalMetrics.search_history_entries ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">|𝓜| (מסמכים)</span>
+                                    <span className="global-metric-value">{globalMetrics.document_count ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">נקודות מחזור (B-Integrity)</span>
+                                    <span className="global-metric-value">{globalMetrics.integrity_cycle_snapshots ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">הפרות (סה״כ)</span>
+                                    <span className="global-metric-value">{globalMetrics.violations_total ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card highlight">
+                                    <span className="global-metric-label">הפרות פעילות</span>
+                                    <span className="global-metric-value">{globalMetrics.violations_active ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">הפרות מטופלות</span>
+                                    <span className="global-metric-value">{globalMetrics.violations_resolved ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">תמונות מצב (Snapshots)</span>
+                                    <span className="global-metric-value">{globalMetrics.system_snapshots ?? 0}</span>
+                                </div>
+                                <div className="global-metric-card">
+                                    <span className="global-metric-label">ריצות Research Loop</span>
+                                    <span className="global-metric-value">{globalMetrics.research_loop_runs ?? 0}</span>
+                                </div>
+                            </div>
                         )}
                     </div>
                 )}
@@ -587,6 +789,89 @@ function IntegrityChart({ points, violations, fullViolations, onPointClick, onVi
                         />
                     );
                 })}
+            </svg>
+        </div>
+    );
+}
+
+function ViolationsByTypeChart({ violations }) {
+    const byType = (violations || []).reduce((acc, v) => {
+        const t = v.type || 'אחר';
+        acc[t] = (acc[t] || 0) + 1;
+        return acc;
+    }, {});
+    const entries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+    if (!entries.length) return <div className="chart-empty">אין הפרות להצגה</div>;
+    const maxCount = Math.max(...entries.map(([, c]) => c));
+    const height = 220;
+    const barHeight = 28;
+    const gap = 8;
+    const padding = { left: 120, right: 24, top: 8, bottom: 8 };
+    const chartW = 280;
+    const width = padding.left + chartW + padding.right;
+    return (
+        <div className="integrity-chart-wrap violations-by-type-chart">
+            <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+                {entries.map(([type, count], i) => {
+                    const y = padding.top + i * (barHeight + gap);
+                    const barW = maxCount ? (count / maxCount) * chartW : 0;
+                    return (
+                        <g key={type}>
+                            <text x={padding.left - 8} y={y + barHeight / 2} textAnchor="end" dominantBaseline="middle" className="chart-axis-label">{type}</text>
+                            <rect x={padding.left} y={y} width={barW} height={barHeight} rx="4" className="chart-bar" />
+                            <text x={padding.left + barW + 6} y={y + barHeight / 2} dominantBaseline="middle" className="chart-axis-label">{count}</text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+}
+
+function ViolationsOverTimeChart({ violations }) {
+    const withDate = (violations || []).filter(v => v.created_at).map(v => ({
+        ...v,
+        date: new Date(v.created_at).toISOString().slice(0, 10)
+    }));
+    const byDate = withDate.reduce((acc, v) => {
+        acc[v.date] = (acc[v.date] || 0) + 1;
+        return acc;
+    }, {});
+    const sortedDates = Object.keys(byDate).sort();
+    if (!sortedDates.length) return <div className="chart-empty">אין הפרות להצגה</div>;
+    const counts = sortedDates.map(d => byDate[d]);
+    const maxCount = Math.max(...counts);
+    const height = 220;
+    const width = Math.max(400, sortedDates.length * 32);
+    const padding = { top: 24, right: 24, bottom: 36, left: 40 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+    const barW = Math.max(4, (chartW / sortedDates.length) - 4);
+    const yScale = (val) => padding.top + chartH - (maxCount ? (val / maxCount) * chartH : 0);
+    return (
+        <div className="integrity-chart-wrap violations-over-time-chart">
+            <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+                {counts.map((c, i) => (
+                    <line key={i} className="chart-grid" x1={padding.left + (i + 0.5) * (chartW / counts.length)} y1={padding.top} x2={padding.left + (i + 0.5) * (chartW / counts.length)} y2={padding.top + chartH} />
+                ))}
+                {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+                    <text key={i} className="chart-axis-label" x={padding.left - 6} y={yScale(maxCount * pct)} textAnchor="end" dominantBaseline="middle">{Math.round(maxCount * pct)}</text>
+                ))}
+                <text x={14} y={padding.top + chartH / 2} className="chart-axis-title" textAnchor="middle" transform={`rotate(-90, 14, ${padding.top + chartH / 2})`}>מס׳ הפרות</text>
+                {sortedDates.map((d, i) => (
+                    <text key={d} className="chart-axis-label" x={padding.left + (i + 0.5) * (chartW / sortedDates.length)} y={height - 12} textAnchor="middle">{d.slice(5)}</text>
+                ))}
+                {counts.map((c, i) => (
+                    <rect
+                        key={i}
+                        className="chart-bar"
+                        x={padding.left + i * (chartW / counts.length) + 2}
+                        y={yScale(c)}
+                        width={barW}
+                        height={chartH - (yScale(c) - padding.top)}
+                        rx="4"
+                    />
+                ))}
             </svg>
         </div>
     );

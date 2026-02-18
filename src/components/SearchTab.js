@@ -400,7 +400,7 @@ function SearchTab() {
                                                 <strong>הצדקות שינוי:</strong>
                                                 <ul>
                                                     {results.justifications.map((j, i) => (
-                                                        <li key={i}>{j.agent}: {j.reason}</li>
+                                                        <li key={i}>{j.agent}: {j.label || j.reason}</li>
                                                     ))}
                                                 </ul>
                                             </div>
