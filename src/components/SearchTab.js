@@ -25,6 +25,7 @@ function SearchTab() {
     const [sessionId, setSessionId] = useState(null);
     const [sessionLoading, setSessionLoading] = useState(true);
     const [answerMode, setAnswerMode] = useState('quick'); // 'quick' = GET /search (stage required) | 'agents' = POST /api/research/run (4 agents)
+    const [preJustification, setPreJustification] = useState('');
 
     // Create research session on mount – required for every question (session_id + stage)
     React.useEffect(() => {
@@ -70,6 +71,7 @@ function SearchTab() {
                     use_4_agents: true
                 };
                 if (selectedFile) body.filename = selectedFile;
+                if (preJustification && preJustification.trim()) body.pre_justification = preJustification.trim();
                 const response = await api.post('/api/research/run', body, { timeout: 120000 });
                 const data = response.data;
                 setResults({
@@ -80,6 +82,8 @@ function SearchTab() {
                     stopped_by_violation: data.stopped_by_violation,
                     violation_id: data.violation_id,
                     message: data.message,
+                    run_id: data.run_id,
+                    duration_ms: data.duration_ms,
                     results_count: 0,
                     results: []
                 });
@@ -103,8 +107,13 @@ function SearchTab() {
                 if (data.session_id) setSessionId(data.session_id);
             }
         } catch (err) {
-            const msg = err.response?.data?.error || err.response?.data?.detail || err.message;
-            setError(err.response?.data?.research_stage_error ? msg : (msg || 'שגיאה בחיפוש'));
+            const data = err.response?.data;
+            const msg = data?.error || data?.detail || err.message;
+            if (err.response?.status === 409 && data?.research_gate_locked) {
+                setError(`שער נעול (Kernel Lock): ${msg} נדרש Recovery לפני המשך.`);
+            } else {
+                setError(data?.research_stage_error ? msg : (msg || 'שגיאה בחיפוש'));
+            }
         } finally {
             setIsSearching(false);
         }
@@ -233,6 +242,20 @@ function SearchTab() {
                         {answerMode === 'quick' ? 'תשובה אחת מהירה לפי שלב מחקר (K→C→B→N→L).' : 'שרשרת 4 סוכנים (analysis → research → critic → synthesis) עם Integrity Monitor.'}
                     </p>
                 </div>
+
+                {answerMode === 'agents' && (
+                    <div className="pre-justification-section" style={{ marginBottom: '12px' }}>
+                        <label className="stage-hint">הצדקה לפני ריצה (אופציונלי – נשמר עם הריצה):</label>
+                        <textarea
+                            value={preJustification}
+                            onChange={(e) => setPreJustification(e.target.value)}
+                            placeholder="תיעוד סיבת הריצה..."
+                            rows={2}
+                            className="search-input"
+                            style={{ width: '100%', minHeight: '50px', resize: 'vertical' }}
+                        />
+                    </div>
+                )}
 
                 {answerMode === 'quick' && (
                     <div className="research-stage-section">

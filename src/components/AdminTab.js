@@ -31,6 +31,15 @@ function AdminTab({ isAdmin }) {
     // Risk Oracle (B-Integrity)
     const [oracle, setOracle] = useState(null);
     const [oracleLoading, setOracleLoading] = useState(false);
+    // Value summary report
+    const [valueSummary, setValueSummary] = useState(null);
+    const [valueSummaryLoading, setValueSummaryLoading] = useState(false);
+    const [valueSummarySessionId, setValueSummarySessionId] = useState('');
+    const [valueSummaryDateFrom, setValueSummaryDateFrom] = useState('');
+    const [valueSummaryDateTo, setValueSummaryDateTo] = useState('');
+    // FIL-01 warnings
+    const [filWarnings, setFilWarnings] = useState(null);
+    const [filWarningsLoading, setFilWarningsLoading] = useState(false);
 
     useEffect(() => {
         if (isAdmin) {
@@ -48,6 +57,8 @@ function AdminTab({ isAdmin }) {
         if (activeSection === 'integrity') {
             loadIntegrityDashboard();
             loadOracle();
+            loadValueSummary();
+            loadFilWarnings();
         }
         if (activeSection === 'global') {
             loadGlobalMetrics();
@@ -268,6 +279,52 @@ function AdminTab({ isAdmin }) {
             setOracle(null);
         } finally {
             setOracleLoading(false);
+        }
+    };
+
+    const loadValueSummary = async () => {
+        setValueSummaryLoading(true);
+        try {
+            const params = {};
+            if (valueSummarySessionId) params.session_id = valueSummarySessionId;
+            if (valueSummaryDateFrom) params.date_from = valueSummaryDateFrom;
+            if (valueSummaryDateTo) params.date_to = valueSummaryDateTo;
+            const response = await api.get('/admin/reports/value-summary', { params, timeout: 10000 });
+            setValueSummary(response.data);
+        } catch (err) {
+            setValueSummary(null);
+        } finally {
+            setValueSummaryLoading(false);
+        }
+    };
+
+    const exportValueSummaryCsv = async () => {
+        const params = { format: 'csv' };
+        if (valueSummarySessionId) params.session_id = valueSummarySessionId;
+        if (valueSummaryDateFrom) params.date_from = valueSummaryDateFrom;
+        if (valueSummaryDateTo) params.date_to = valueSummaryDateTo;
+        try {
+            const response = await api.get('/admin/reports/value-summary', { params, responseType: 'text', timeout: 10000 });
+            const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `value-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch (err) {
+            alert(err.response?.data?.error || err.message || 'שגיאה בייצוא');
+        }
+    };
+
+    const loadFilWarnings = async () => {
+        setFilWarningsLoading(true);
+        try {
+            const response = await api.get('/admin/fil/warnings', { params: { days: 30 }, timeout: 10000 });
+            setFilWarnings(response.data);
+        } catch (err) {
+            setFilWarnings(null);
+        } finally {
+            setFilWarningsLoading(false);
         }
     };
 
@@ -524,7 +581,7 @@ function AdminTab({ isAdmin }) {
                                 </div>
 
                                 <div className="integrity-oracle-block">
-                                    <h4>חיזוי סיכונים (Oracle)</h4>
+                                    <h4>חיזוי סיכונים (Risk Oracle – אזהרות בלבד, לא חוסם)</h4>
                                     {oracleLoading ? (
                                         <div className="loading small">טוען...</div>
                                     ) : oracle && (oracle.risks || []).length > 0 ? (
@@ -539,6 +596,69 @@ function AdminTab({ isAdmin }) {
                                     ) : (
                                         <div className="oracle-no-risks">אין סיכונים מזוהים כרגע</div>
                                     )}
+                                </div>
+
+                                <div className="integrity-fil-block">
+                                    <h4>FIL-01 – התראות מניתוח הפרות</h4>
+                                    {filWarningsLoading ? (
+                                        <div className="loading small">טוען...</div>
+                                    ) : filWarnings && (filWarnings.warnings || []).length > 0 ? (
+                                        <ul className="oracle-risks-list">
+                                            {(filWarnings.warnings || []).map((w, i) => (
+                                                <li key={w.id || i} className="oracle-risk severity-medium">
+                                                    <span className="oracle-risk-badge">{w.type === 'recurring_reason' ? 'חוזר' : w.type === 'session_repeated_violations' ? 'סשן' : 'פעיל'}</span>
+                                                    <span className="oracle-risk-message">{w.message}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="oracle-no-risks">אין אזהרות FIL</div>
+                                    )}
+                                </div>
+
+                                <div className="integrity-value-summary-block">
+                                    <h4>דוח ערך (Value Summary)</h4>
+                                    <div className="dashboard-filters">
+                                        <div className="filter-group">
+                                            <label>מתאריך</label>
+                                            <input type="date" value={valueSummaryDateFrom} onChange={e => setValueSummaryDateFrom(e.target.value)} className="filter-input" />
+                                        </div>
+                                        <div className="filter-group">
+                                            <label>עד תאריך</label>
+                                            <input type="date" value={valueSummaryDateTo} onChange={e => setValueSummaryDateTo(e.target.value)} className="filter-input" />
+                                        </div>
+                                        <div className="filter-group">
+                                            <label>מזהה סשן</label>
+                                            <input type="text" value={valueSummarySessionId} onChange={e => setValueSummarySessionId(e.target.value)} placeholder="אופציונלי" className="filter-input filter-input-text" />
+                                        </div>
+                                        <button type="button" className="filter-apply-btn" onClick={loadValueSummary}>טען דוח</button>
+                                        <button type="button" className="export-csv-btn" onClick={exportValueSummaryCsv} disabled={!valueSummary}>ייצוא CSV</button>
+                                    </div>
+                                    {valueSummaryLoading ? (
+                                        <div className="loading small">טוען...</div>
+                                    ) : valueSummary ? (
+                                        <div className="value-summary-content">
+                                            <div className="status-row"><span className="status-label">סה"כ ריצות:</span> <span>{valueSummary.runs?.total ?? 0}</span></div>
+                                            <div className="status-row"><span className="status-label">הצלחות:</span> <span>{valueSummary.runs?.successful ?? 0}</span></div>
+                                            <div className="status-row"><span className="status-label">נעצרו (הפרה):</span> <span>{valueSummary.runs?.stopped_by_violation ?? 0}</span></div>
+                                            {valueSummary.duration_ms && (
+                                                <div className="status-row"><span className="status-label">זמן ריצה (ממוצע/מינ/מקס ms):</span> <span>{valueSummary.duration_ms.avg_ms} / {valueSummary.duration_ms.min_ms} / {valueSummary.duration_ms.max_ms}</span></div>
+                                            )}
+                                            <div className="status-row"><span className="status-label">הפרות לפי סיבה:</span> <span>{JSON.stringify(valueSummary.violations_by_reason || {})}</span></div>
+                                            {(valueSummary.violations || []).length > 0 && (
+                                                <div className="value-summary-violations">
+                                                    <strong>הפרות (reason + details):</strong>
+                                                    <ul className="violations-detail-list">
+                                                        {(valueSummary.violations || []).slice(0, 20).map(v => (
+                                                            <li key={v.id}>
+                                                                {v.reason} {v.details ? ` – ${JSON.stringify(v.details)}` : ''} (סשן: {v.session_id})
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : null}
                                 </div>
 
                                 <div className="integrity-chart-block">
