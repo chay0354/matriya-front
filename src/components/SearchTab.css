@@ -5,19 +5,19 @@
 .research-stage-section {
     margin-bottom: 24px;
     padding: 16px 20px;
-    background: rgba(15, 20, 40, 0.4);
+    background: rgba(240, 242, 245, 0.4);
     border-radius: 12px;
-    border: 1px solid rgba(102, 126, 234, 0.25);
+    border: 1px solid rgba(22, 101, 52, 0.25);
 }
 
 .stage-heading {
-    color: #e0e0e0;
+    color: var(--matriya-text);
     font-size: 1.05em;
     margin: 0 0 8px 0;
 }
 
 .stage-hint {
-    color: #8a8ab0;
+    color: var(--matriya-muted);
     font-size: 0.9em;
     margin: 0 0 14px 0;
 }
@@ -31,10 +31,10 @@
 
 .stage-button {
     padding: 10px 20px;
-    background: rgba(15, 20, 40, 0.6);
-    border: 2px solid rgba(102, 126, 234, 0.3);
+    background: rgba(240, 242, 245, 0.6);
+    border: 2px solid rgba(22, 101, 52, 0.3);
     border-radius: 10px;
-    color: #c0c0e0;
+    color: var(--matriya-text);
     font-weight: 600;
     font-size: 1em;
     cursor: pointer;
@@ -42,28 +42,28 @@
 }
 
 .stage-button:hover {
-    border-color: rgba(102, 126, 234, 0.6);
-    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(22, 101, 52, 0.6);
+    background: rgba(22, 101, 52, 0.15);
 }
 
 .stage-button.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--matriya-accent) 0%, var(--matriya-accent-hover) 100%);
     border-color: transparent;
     color: white;
 }
 
 .stage-desc {
     display: inline-block;
-    color: #a0a0c0;
+    color: var(--matriya-muted);
     font-size: 0.9em;
 }
 
 .answer-mode-section {
     margin-bottom: 20px;
     padding: 14px 18px;
-    background: rgba(15, 20, 40, 0.35);
+    background: rgba(240, 242, 245, 0.35);
     border-radius: 12px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(22, 101, 52, 0.2);
 }
 
 .mode-buttons {
@@ -75,10 +75,10 @@
 
 .mode-button {
     padding: 10px 22px;
-    background: rgba(15, 20, 40, 0.6);
-    border: 2px solid rgba(102, 126, 234, 0.3);
+    background: rgba(240, 242, 245, 0.6);
+    border: 2px solid rgba(22, 101, 52, 0.3);
     border-radius: 10px;
-    color: #c0c0e0;
+    color: var(--matriya-text);
     font-weight: 600;
     font-size: 1em;
     cursor: pointer;
@@ -86,12 +86,12 @@
 }
 
 .mode-button:hover {
-    border-color: rgba(102, 126, 234, 0.6);
-    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(22, 101, 52, 0.6);
+    background: rgba(22, 101, 52, 0.15);
 }
 
 .mode-button.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--matriya-accent) 0%, var(--matriya-accent-hover) 100%);
     border-color: transparent;
     color: white;
 }
@@ -99,9 +99,9 @@
 .research-stage-badge {
     display: inline-block;
     padding: 4px 12px;
-    background: rgba(102, 126, 234, 0.25);
+    background: rgba(22, 101, 52, 0.25);
     border-radius: 8px;
-    color: #a0b0ff;
+    color: var(--matriya-accent);
     font-size: 0.9em;
     font-weight: 600;
     margin-bottom: 10px;
@@ -116,29 +116,29 @@
 .search-input {
     flex: 1;
     padding: 18px 20px;
-    background: rgba(15, 20, 40, 0.6);
-    border: 2px solid rgba(102, 126, 234, 0.3);
+    background: rgba(240, 242, 245, 0.6);
+    border: 2px solid rgba(22, 101, 52, 0.3);
     border-radius: 12px;
     font-size: 1.05em;
-    color: #e0e0e0;
+    color: var(--matriya-text);
     transition: all 0.3s ease;
     direction: rtl;
 }
 
 .search-input::placeholder {
-    color: #6a6a8a;
+    color: var(--matriya-muted);
 }
 
 .search-input:focus {
     outline: none;
-    border-color: #667eea;
-    background: rgba(15, 20, 40, 0.8);
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    border-color: var(--matriya-accent);
+    background: rgba(240, 242, 245, 0.8);
+    box-shadow: 0 0 0 4px rgba(22, 101, 52, 0.1);
 }
 
 .search-button {
     padding: 18px 35px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--matriya-accent) 0%, var(--matriya-accent-hover) 100%);
     color: white;
     border: none;
     border-radius: 12px;
@@ -146,7 +146,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 15px rgba(22, 101, 52, 0.3);
     position: relative;
     overflow: hidden;
 }
@@ -171,7 +171,7 @@
 
 .search-button:hover:not(:disabled) {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 8px 25px rgba(22, 101, 52, 0.5);
 }
 
 .search-button:active:not(:disabled) {
@@ -209,9 +209,9 @@
 .search-options {
     margin-bottom: 25px;
     padding: 20px;
-    background: rgba(15, 20, 40, 0.4);
+    background: rgba(240, 242, 245, 0.4);
     border-radius: 12px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(22, 101, 52, 0.2);
     display: flex;
     flex-wrap: wrap;
     gap: 25px;
@@ -222,17 +222,17 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    color: #c0c0e0;
+    color: var(--matriya-text);
     font-weight: 500;
 }
 
 .file-select {
     padding: 10px 15px;
-    background: rgba(15, 20, 40, 0.6);
-    border: 1px solid rgba(102, 126, 234, 0.3);
+    background: rgba(240, 242, 245, 0.6);
+    border: 1px solid rgba(22, 101, 52, 0.3);
     border-radius: 8px;
     font-size: 1em;
-    color: #e0e0e0;
+    color: var(--matriya-text);
     cursor: pointer;
     transition: all 0.3s ease;
     min-width: 200px;
@@ -248,7 +248,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    color: #c0c0e0;
+    color: var(--matriya-text);
     font-weight: 500;
     position: relative;
 }
@@ -257,8 +257,8 @@
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(102, 126, 234, 0.3);
-    border-top-color: #667eea;
+    border: 2px solid rgba(22, 101, 52, 0.3);
+    border-top-color: var(--matriya-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin-right: 10px;
@@ -267,29 +267,29 @@
 
 .file-select:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--matriya-accent);
+    box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.1);
 }
 
 .file-select:hover {
-    border-color: #667eea;
-    background: rgba(15, 20, 40, 0.8);
+    border-color: var(--matriya-accent);
+    background: rgba(240, 242, 245, 0.8);
 }
 
 .results-count-input {
     padding: 10px;
-    background: rgba(15, 20, 40, 0.6);
-    border: 1px solid rgba(102, 126, 234, 0.3);
+    background: rgba(240, 242, 245, 0.6);
+    border: 1px solid rgba(22, 101, 52, 0.3);
     border-radius: 8px;
     width: 80px;
-    color: #e0e0e0;
+    color: var(--matriya-text);
     text-align: center;
 }
 
 .results-count-input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--matriya-accent);
+    box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.1);
 }
 
 .error-message {
@@ -305,7 +305,7 @@
 .loading {
     text-align: center;
     padding: 50px;
-    color: #a0a0c0;
+    color: var(--matriya-muted);
     font-size: 1.1em;
 }
 
@@ -356,7 +356,7 @@
     font-size: 1.1em;
     line-height: 1.9;
     margin-bottom: 18px;
-    background: rgba(15, 20, 40, 0.4);
+    background: rgba(240, 242, 245, 0.4);
     padding: 20px;
     border-radius: 12px;
     border: 1px solid rgba(76, 175, 80, 0.2);
@@ -373,14 +373,14 @@
 .four-agents-outputs {
     margin-top: 16px;
     padding: 12px 16px;
-    background: rgba(15, 20, 40, 0.5);
+    background: rgba(240, 242, 245, 0.5);
     border-radius: 10px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(22, 101, 52, 0.2);
 }
 
 .four-agents-outputs summary {
     cursor: pointer;
-    color: #a0b0ff;
+    color: var(--matriya-accent);
     font-weight: 600;
 }
 
@@ -392,21 +392,21 @@
 }
 
 .agent-output-item {
-    color: #c0c0e0;
+    color: var(--matriya-text);
     font-size: 0.95em;
     line-height: 1.5;
 }
 
 .agent-output-item strong {
-    color: #667eea;
+    color: var(--matriya-accent);
     margin-left: 6px;
 }
 
 .justifications-list {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid rgba(102, 126, 234, 0.2);
-    color: #a0a0c0;
+    border-top: 1px solid rgba(22, 101, 52, 0.2);
+    color: var(--matriya-muted);
     font-size: 0.9em;
 }
 
@@ -428,26 +428,26 @@
 .empty-state {
     text-align: center;
     padding: 60px;
-    color: #6a6a8a;
+    color: var(--matriya-muted);
     font-size: 1.1em;
 }
 
 .search-result-item {
-    background: rgba(15, 20, 40, 0.4);
+    background: rgba(240, 242, 245, 0.4);
     border-radius: 12px;
     padding: 25px;
     margin-bottom: 20px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    border-right: 4px solid #667eea;
+    border: 1px solid rgba(22, 101, 52, 0.2);
+    border-right: 4px solid var(--matriya-accent);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
 }
 
 .search-result-item:hover {
     transform: translateX(-8px);
-    border-color: rgba(102, 126, 234, 0.4);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
-    background: rgba(15, 20, 40, 0.6);
+    border-color: rgba(22, 101, 52, 0.4);
+    box-shadow: 0 8px 25px rgba(22, 101, 52, 0.2);
+    background: rgba(240, 242, 245, 0.6);
 }
 
 .result-header {
@@ -461,21 +461,21 @@
 
 .result-filename {
     font-weight: 700;
-    color: #667eea;
+    color: var(--matriya-accent);
     font-size: 1.05em;
 }
 
 .result-distance {
     font-size: 0.9em;
-    color: #a0a0c0;
-    background: rgba(102, 126, 234, 0.15);
+    color: var(--matriya-muted);
+    background: rgba(22, 101, 52, 0.15);
     padding: 6px 12px;
     border-radius: 8px;
     font-weight: 500;
 }
 
 .result-text {
-    color: #d0d0e0;
+    color: var(--matriya-text);
     line-height: 1.8;
     margin-top: 15px;
     font-size: 1.05em;
@@ -484,7 +484,7 @@
 .result-metadata {
     margin-top: 15px;
     font-size: 0.9em;
-    color: #8a8aa0;
+    color: var(--matriya-muted);
 }
 
 .agent-actions {
@@ -650,10 +650,10 @@
 }
 
 .agent-analysis-text {
-    color: #e0e0e0;
+    color: var(--matriya-text);
     line-height: 1.8;
     font-size: 1.05em;
-    background: rgba(15, 20, 40, 0.4);
+    background: rgba(240, 242, 245, 0.4);
     padding: 20px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);

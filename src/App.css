@@ -8,11 +8,10 @@ header {
     text-align: center;
     margin-bottom: 40px;
     padding: 30px 20px;
-    background: rgba(26, 31, 58, 0.6);
-    backdrop-filter: blur(20px);
+    background: var(--matriya-surface);
     border-radius: 20px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--matriya-border);
+    box-shadow: var(--matriya-shadow);
     position: relative;
     overflow: hidden;
 }
@@ -24,7 +23,7 @@ header::before {
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    background: var(--matriya-accent);
     background-size: 200% 100%;
     animation: shimmer 3s linear infinite;
 }
@@ -37,18 +36,14 @@ header::before {
 header h1 {
     font-size: 3em;
     margin-bottom: 10px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--matriya-accent);
     font-weight: 800;
     letter-spacing: -1px;
-    text-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
 }
 
 .subtitle {
     font-size: 1.2em;
-    color: #a0a0c0;
+    color: var(--matriya-muted);
     font-weight: 400;
 }
 
@@ -62,15 +57,14 @@ header h1 {
 
 .tab-button {
     padding: 14px 28px;
-    background: rgba(26, 31, 58, 0.5);
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    background: var(--matriya-surface);
+    border: 1px solid var(--matriya-border);
     border-radius: 12px;
-    color: #c0c0e0;
+    color: var(--matriya-text);
     cursor: pointer;
     font-size: 1em;
     font-weight: 600;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
     position: relative;
     overflow: hidden;
 }
@@ -91,17 +85,17 @@ header h1 {
 }
 
 .tab-button:hover {
-    background: rgba(102, 126, 234, 0.2);
-    border-color: rgba(102, 126, 234, 0.4);
+    background: rgba(22, 101, 52, 0.08);
+    border-color: var(--matriya-accent);
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 8px 20px rgba(22, 101, 52, 0.15);
 }
 
 .tab-button.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--matriya-accent);
     color: white;
-    border-color: transparent;
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    border-color: var(--matriya-accent);
+    box-shadow: 0 8px 25px rgba(22, 101, 52, 0.3);
     transform: translateY(-2px);
 }
 
@@ -121,42 +115,37 @@ header h1 {
 }
 
 .card {
-    background: rgba(26, 31, 58, 0.6);
-    backdrop-filter: blur(20px);
+    background: var(--matriya-surface);
     border-radius: 20px;
     padding: 40px;
     margin-bottom: 20px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--matriya-border);
+    box-shadow: var(--matriya-shadow);
     transition: all 0.3s ease;
 }
 
 .card:hover {
-    border-color: rgba(102, 126, 234, 0.3);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    border-color: var(--matriya-accent);
+    box-shadow: 0 12px 40px rgba(22, 101, 52, 0.12);
 }
 
 .card h2 {
     margin-bottom: 25px;
-    color: #ffffff;
+    color: var(--matriya-text);
     font-size: 1.8em;
     font-weight: 700;
-    background: linear-gradient(135deg, #ffffff 0%, #c0c0e0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }
 
 .loading {
     text-align: center;
     padding: 40px;
-    color: #a0a0c0;
+    color: var(--matriya-muted);
     font-size: 1.1em;
 }
 
 .logout-button {
     padding: 10px 20px;
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background: var(--matriya-danger);
     color: white;
     border: none;
     border-radius: 10px;
@@ -164,12 +153,12 @@ header h1 {
     font-size: 0.9em;
     font-weight: 600;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.25);
 }
 
 .logout-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.35);
 }
 
 @media (max-width: 768px) {
