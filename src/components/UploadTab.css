@@ -2,6 +2,230 @@
     width: 100%;
 }
 
+.upload-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .upload-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.upload-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.upload-card-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.upload-card-header h2 {
+    margin: 0;
+}
+
+.upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.upload-actions .upload-area {
+    flex: 1;
+    min-width: 200px;
+}
+
+.folder-upload-btn {
+    padding: 12px 20px;
+    background: var(--matriya-surface);
+    border: 1px solid var(--matriya-border);
+    border-radius: 12px;
+    color: var(--matriya-accent);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.folder-upload-btn:hover {
+    background: rgba(22, 101, 52, 0.08);
+    border-color: var(--matriya-accent);
+}
+
+.documents-table-card h2 {
+    margin-bottom: 16px;
+}
+
+.empty-docs {
+    color: var(--matriya-muted);
+    padding: 16px 0;
+}
+
+.table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--matriya-border);
+}
+
+.documents-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.documents-table th,
+.documents-table td {
+    padding: 12px 14px;
+    text-align: right;
+    border-bottom: 1px solid var(--matriya-border);
+}
+
+.documents-table th {
+    background: var(--matriya-bg);
+    color: var(--matriya-text);
+    font-weight: 600;
+}
+
+.documents-table tbody tr:hover {
+    background: rgba(22, 101, 52, 0.04);
+}
+
+.documents-table .doc-name {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.preview-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--matriya-accent);
+    border-radius: 8px;
+    color: var(--matriya-accent);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.preview-btn:hover {
+    background: rgba(22, 101, 52, 0.1);
+}
+
+.upload-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sidebar-card h3 {
+    margin: 0 0 12px 0;
+    font-size: 1rem;
+    color: var(--matriya-text);
+}
+
+.sidebar-card .muted,
+.sidebar-card p.muted {
+    color: var(--matriya-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.stats-list,
+.recent-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.stats-list li,
+.recent-list li {
+    padding: 6px 0;
+    color: var(--matriya-text);
+    font-size: 0.9rem;
+}
+
+.recent-list li {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.preview-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.preview-modal {
+    background: var(--matriya-surface);
+    border-radius: 16px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--matriya-border);
+}
+
+.preview-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.preview-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--matriya-muted);
+    line-height: 1;
+}
+
+.preview-close:hover {
+    color: var(--matriya-text);
+}
+
+.preview-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.preview-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--matriya-text);
+}
+
 .upload-area {
     border: 3px dashed rgba(22, 101, 52, 0.4);
     border-radius: 16px;

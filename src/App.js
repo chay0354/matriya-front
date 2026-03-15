@@ -100,8 +100,8 @@ function App() {
         return (
             <div className="container">
                 <header>
-                    <h1>MATRIYA RAG System</h1>
-                    <p className="subtitle">מערכת חיפוש חכמה במסמכים</p>
+                    <h1>MATRIYA – Research Intelligence System</h1>
+                    <p className="subtitle">מערכת אינטליגנציה למחקר</p>
                 </header>
                 <LoginTab onLogin={handleLogin} />
             </div>
@@ -113,8 +113,8 @@ function App() {
             <header>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <h1>MATRIYA RAG System</h1>
-                        <p className="subtitle">מערכת חיפוש חכמה במסמכים</p>
+                        <h1>MATRIYA – Research Intelligence System</h1>
+                        <p className="subtitle">מערכת אינטליגנציה למחקר</p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                         <span style={{ color: '#c0c0e0', fontSize: '1.05em', fontWeight: '500' }}>
