@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../utils/api';
+import { formatBoldSegments } from '../utils/formatBold';
 import './SearchTab.css';
 
 const RESEARCH_STAGES = [
@@ -407,14 +408,21 @@ function SearchTab() {
                                         מצב: {results.state}
                                     </div>
                                 )}
-                                <div className="answer-text">{results.answer}</div>
+                                <div className="answer-text">
+                                    {formatBoldSegments(results.answer || '').map((part, j) =>
+                                        part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
+                                    )}
+                                </div>
                                 {results.use_4_agents && results.outputs && (
                                     <details className="four-agents-outputs">
                                         <summary>פלטי כל הסוכנים</summary>
                                         <div className="agent-outputs-list">
                                             {Object.entries(results.outputs).map(([name, text]) => (
                                                 <div key={name} className="agent-output-item">
-                                                    <strong>{name}:</strong> {text || '—'}
+                                                    <strong>{name}:</strong>{' '}
+                                                    {formatBoldSegments(text || '—').map((part, j) =>
+                                                        part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -483,7 +491,9 @@ function SearchTab() {
                                         : '⚠️ ניתוח סיכונים (Risk Agent)'}
                                 </h3>
                                 <div className="agent-analysis-text">
-                                    {agentAnalysis.analysis}
+                                    {formatBoldSegments(agentAnalysis.analysis || '').map((part, j) =>
+                                        part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -504,7 +514,11 @@ function SearchTab() {
                                             דמיון: {item.distance ? item.distance.toFixed(4) : 'N/A'}
                                         </span>
                                     </div>
-                                    <div className="result-text">{item.document}</div>
+                                    <div className="result-text">
+                                        {formatBoldSegments(item.document || '').map((part, j) =>
+                                            part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
+                                        )}
+                                    </div>
                                     {item.metadata?.chunk_index !== undefined && (
                                         <div className="result-metadata">
                                             חלק מספר: {item.metadata.chunk_index}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import UploadTab from './components/UploadTab';
 import SearchTab from './components/SearchTab';
+import AskMatriyaTab from './components/AskMatriyaTab';
 import LoginTab from './components/LoginTab';
 import AdminTab from './components/AdminTab';
 import axios from 'axios';
@@ -83,6 +84,7 @@ function App() {
 
     const tabs = [
         { id: 'upload', label: 'העלאת מסמכים' },
+        { id: 'ask', label: 'Ask Matriya' },
         { id: 'search', label: 'חיפוש' },
         ...(isAdmin ? [{ id: 'admin', label: 'ניהול' }] : [])
     ];
@@ -144,6 +146,7 @@ function App() {
 
             <div className="tab-content-wrapper">
                 {activeTab === 'upload' && <UploadTab />}
+                {activeTab === 'ask' && <AskMatriyaTab />}
                 {activeTab === 'search' && <SearchTab />}
                 {activeTab === 'admin' && isAdmin && <AdminTab isAdmin={isAdmin} />}
             </div>

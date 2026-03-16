@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../utils/api';
+import { formatBoldSegments } from '../utils/formatBold';
 import './UploadTab.css';
 
 const ACCEPT = '.pdf,.docx,.txt,.doc,.xlsx,.xls';
@@ -298,7 +299,11 @@ function UploadTab() {
                             {previewLoading ? (
                                 <div className="loading">טוען...</div>
                             ) : (
-                                <div className="preview-text">{previewDoc.text || 'אין תוכן'}</div>
+                                <div className="preview-text">
+                                    {formatBoldSegments(previewDoc.text || 'אין תוכן').map((part, j) =>
+                                        part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
