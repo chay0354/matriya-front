@@ -85,7 +85,7 @@ function App() {
     const tabs = [
         { id: 'upload', label: 'העלאת מסמכים' },
         { id: 'ask', label: 'Ask Matriya' },
-        { id: 'search', label: 'חיפוש' },
+        { id: 'search', label: 'מחקר' },
         ...(isAdmin ? [{ id: 'admin', label: 'ניהול' }] : [])
     ];
 
