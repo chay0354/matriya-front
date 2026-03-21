@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
+import GptSyncStatusRow from './GptSyncStatusRow';
 import './SearchTab.css';
 
 const RESEARCH_STAGES = [
@@ -13,7 +14,6 @@ const RESEARCH_STAGES = [
 
 function SearchTab() {
     const [query, setQuery] = useState('');
-    const [nResults, setNResults] = useState(5);
     const [selectedFile, setSelectedFile] = useState('');
     const [availableFiles, setAvailableFiles] = useState([]);
     const [isLoadingFiles, setIsLoadingFiles] = useState(true);
@@ -29,7 +29,7 @@ function SearchTab() {
     const [preJustification, setPreJustification] = useState('');
 
     // Create research session on mount – required for every question (session_id + stage)
-    React.useEffect(() => {
+    useEffect(() => {
         let isMounted = true;
         const createSession = async () => {
             setSessionLoading(true);
@@ -91,7 +91,6 @@ function SearchTab() {
             } else {
                 const params = {
                     query: query.trim(),
-                    n_results: nResults,
                     generate_answer: true,
                     stage: researchStage,
                     session_id: sessionId
@@ -126,38 +125,25 @@ function SearchTab() {
         }
     };
 
-    // Load available files on component mount
-    React.useEffect(() => {
-        let isMounted = true;
-        const loadFiles = async () => {
-            setIsLoadingFiles(true);
-            try {
-                const response = await api.get('/files', {
-                    timeout: 15000  // 15 second timeout (files list may need RAG service init)
-                });
-                if (!isMounted) return;
-                const files = response.data.files || [];
-                setAvailableFiles(files);
-                // Auto-select first file if available
-                if (files.length > 0) {
-                    setSelectedFile(prev => prev || files[0]);
-                }
-            } catch (err) {
-                if (!isMounted) return;
-                console.error('Error loading files:', err);
-                setError('שגיאה בטעינת רשימת הקבצים');
-            } finally {
-                if (isMounted) {
-                    setIsLoadingFiles(false);
-                }
-            }
-        };
-        loadFiles();
-        return () => {
-            isMounted = false;
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    const loadAvailableFiles = useCallback(async () => {
+        setIsLoadingFiles(true);
+        try {
+            const response = await api.get('/files', {
+                timeout: 15000
+            });
+            const files = response.data.files || [];
+            setAvailableFiles(files);
+        } catch (err) {
+            console.error('Error loading files:', err);
+            setError('שגיאה בטעינת רשימת הקבצים');
+        } finally {
+            setIsLoadingFiles(false);
+        }
     }, []);
+
+    useEffect(() => {
+        loadAvailableFiles();
+    }, [loadAvailableFiles]);
 
     const handleAgentCheck = async (agentType) => {
         if (!results || !results.answer) {
@@ -216,8 +202,9 @@ function SearchTab() {
 
     return (
         <div className="search-tab">
-            <div className="card">
+                <div className="card">
                 <h2>חיפוש במסמכים</h2>
+                <GptSyncStatusRow filenames={availableFiles} onSyncComplete={loadAvailableFiles} className="search-tab-gpt-sync" />
 
                 <div className="answer-mode-section">
                     <h3 className="stage-heading">אופן תשובה</h3>
@@ -312,17 +299,6 @@ function SearchTab() {
                 </div>
                 <div className="search-options">
                     <label>
-                        מספר תוצאות:
-                        <input
-                            type="number"
-                            value={nResults}
-                            onChange={(e) => setNResults(parseInt(e.target.value) || 5)}
-                            min="1"
-                            max="20"
-                            className="results-count-input"
-                        />
-                    </label>
-                    <label>
                         חיפוש במסמך:
                         <select
                             value={selectedFile}
@@ -335,11 +311,14 @@ function SearchTab() {
                             ) : availableFiles.length === 0 ? (
                                 <option value="">אין קבצים זמינים</option>
                             ) : (
-                                availableFiles.map((filename, index) => (
-                                    <option key={index} value={filename}>
-                                        {filename}
-                                    </option>
-                                ))
+                                <>
+                                    <option value="">כל המסמכים</option>
+                                    {availableFiles.map((filename, index) => (
+                                        <option key={index} value={filename}>
+                                            {filename}
+                                        </option>
+                                    ))}
+                                </>
                             )}
                         </select>
                         {isLoadingFiles && (

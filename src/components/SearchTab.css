@@ -276,22 +276,6 @@
     background: rgba(240, 242, 245, 0.8);
 }
 
-.results-count-input {
-    padding: 10px;
-    background: rgba(240, 242, 245, 0.6);
-    border: 1px solid rgba(22, 101, 52, 0.3);
-    border-radius: 8px;
-    width: 80px;
-    color: var(--matriya-text);
-    text-align: center;
-}
-
-.results-count-input:focus {
-    outline: none;
-    border-color: var(--matriya-accent);
-    box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.1);
-}
-
 .error-message {
     background: rgba(220, 53, 69, 0.15);
     color: #ff6b7a;
@@ -352,14 +336,14 @@
 }
 
 .answer-text {
-    color: #e8f5e9;
+    color: #1b3d1f;
     font-size: 1.1em;
     line-height: 1.9;
     margin-bottom: 18px;
-    background: rgba(240, 242, 245, 0.4);
+    background: rgba(255, 255, 255, 0.95);
     padding: 20px;
     border-radius: 12px;
-    border: 1px solid rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 .answer-sources {

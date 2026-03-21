@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
+import GptSyncStatusRow from './GptSyncStatusRow';
 import './UploadTab.css';
 
 const ACCEPT = '.pdf,.docx,.txt,.doc,.xlsx,.xls';
@@ -171,7 +172,7 @@ function UploadTab() {
         setIsUploading(true);
         setUploadResult(null);
         try {
-            const response = await api.post('/ingest/file', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const response = await api.post('/ingest/file', formData);
             if (response.data.success) {
                 setUploadResult({ type: 'success', message: 'העלאה הושלמה בהצלחה!', data: response.data.data });
                 loadFileList();
@@ -196,7 +197,7 @@ function UploadTab() {
             const relativePath = file.webkitRelativePath || (file.path && typeof file.path === 'string' ? file.path : null);
             if (relativePath) formData.append('relative_path', relativePath);
             try {
-                const response = await api.post('/ingest/file', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                const response = await api.post('/ingest/file', formData);
                 if (response.data?.success) ok++;
                 else err++;
             } catch (_) {
@@ -367,7 +368,14 @@ function UploadTab() {
 
                     <div className="card upload-ask-card">
                         <h2>שאל על המסמכים</h2>
-                        <p className="upload-ask-hint">בחר קובץ (או כל הקבצים) ושאל שאלה – התשובה מבוססת על תוכן המסמכים.</p>
+                        <GptSyncStatusRow
+                            filenames={fileList.map((f) => f.filename)}
+                            onSyncComplete={() => {
+                                loadFileList();
+                                loadCollectionInfo();
+                            }}
+                            className="upload-ask-gpt-sync"
+                        />
                         {fileList.length > 0 && (
                             <>
                                 <div className="form-group">

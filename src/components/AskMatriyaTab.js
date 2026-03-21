@@ -111,7 +111,8 @@ function AskMatriyaTab() {
             <div className="ask-matriya-single card">
                 <h2>שאל את מטריה</h2>
                 <p className="ask-matriya-hint">
-                    בחרו מסמך אחד או כמה מהמערכת — התשובות יתבססו על תוכנם.
+                    בחרו מסמך אחד או כמה מהמערכת — התשובות יתבססו על תוכנם. ללא בחירה, החיפוש כולל את כל המסמכים
+                    הזמינים והמסונכרנים.
                 </p>
 
                 <div className="ask-matriya-file-section" ref={dropdownRef}>

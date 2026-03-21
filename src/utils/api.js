@@ -40,6 +40,10 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        // Let the browser set multipart boundary + UTF-8 filenames; default JSON Content-Type breaks FormData in axios transformRequest
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+            delete config.headers['Content-Type'];
+        }
         return config;
     },
     (error) => {

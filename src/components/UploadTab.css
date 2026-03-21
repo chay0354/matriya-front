@@ -160,12 +160,6 @@
     margin: 0 0 8px 0;
 }
 
-.upload-ask-hint {
-    color: var(--matriya-muted);
-    font-size: 0.9rem;
-    margin: 0 0 16px 0;
-}
-
 .upload-ask-card .form-group {
     margin-bottom: 12px;
 }
