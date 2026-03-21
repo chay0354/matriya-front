@@ -8,10 +8,14 @@ import AdminTab from './components/AdminTab';
 import axios from 'axios';
 import { API_BASE_URL } from './utils/api';
 
+const TAB_SWITCH_BLOCKED_WHILE_GPT_SYNC_TITLE =
+    'לא ניתן לעבור לשונית אחרת בזמן סנכרון המסמכים (מסנכרן…)';
+
 function App() {
     const [activeTab, setActiveTab] = useState('upload');
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [gptRagSyncing, setGptRagSyncing] = useState(false);
 
     // Check if user is already logged in (optimized)
     useEffect(() => {
@@ -133,21 +137,27 @@ function App() {
             </header>
 
             <div className="tabs">
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-                        onClick={() => setActiveTab(tab.id)}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
+                {tabs.map(tab => {
+                    const switchBlocked = gptRagSyncing && tab.id !== activeTab;
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+                            disabled={switchBlocked}
+                            title={switchBlocked ? TAB_SWITCH_BLOCKED_WHILE_GPT_SYNC_TITLE : undefined}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
             </div>
 
             <div className="tab-content-wrapper">
-                {activeTab === 'upload' && <UploadTab />}
+                {activeTab === 'upload' && <UploadTab onGptSyncingChange={setGptRagSyncing} />}
                 {activeTab === 'ask' && <AskMatriyaTab />}
-                {activeTab === 'search' && <SearchTab />}
+                {activeTab === 'search' && <SearchTab onGptSyncingChange={setGptRagSyncing} />}
                 {activeTab === 'admin' && isAdmin && <AdminTab isAdmin={isAdmin} />}
             </div>
         </div>

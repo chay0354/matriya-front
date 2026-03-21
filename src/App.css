@@ -99,6 +99,26 @@ header h1 {
     transform: translateY(-2px);
 }
 
+.tab-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+    box-shadow: none;
+}
+
+.tab-button:disabled:hover {
+    background: var(--matriya-surface);
+    border-color: var(--matriya-border);
+    transform: none;
+    box-shadow: none;
+}
+
+.tab-button.active:disabled {
+    opacity: 0.85;
+    background: var(--matriya-accent);
+    border-color: var(--matriya-accent);
+}
+
 .tab-content-wrapper {
     animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }

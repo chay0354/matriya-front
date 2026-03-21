@@ -67,7 +67,7 @@ function collectFolderPathFulls(node) {
     return out;
 }
 
-function UploadTab() {
+function UploadTab({ onGptSyncingChange }) {
     const [fileList, setFileList] = useState([]);
     const [fileListLoading, setFileListLoading] = useState(true);
     const [isDragging, setIsDragging] = useState(false);
@@ -374,6 +374,7 @@ function UploadTab() {
                                 loadFileList();
                                 loadCollectionInfo();
                             }}
+                            onSyncingChange={onGptSyncingChange}
                             className="upload-ask-gpt-sync"
                         />
                         {fileList.length > 0 && (

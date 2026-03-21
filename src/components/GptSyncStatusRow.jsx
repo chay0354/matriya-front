@@ -15,9 +15,9 @@ function hasEligibleFilenames(filenames) {
 
 /**
  * Cloud document sync status + actions (vendor-neutral UI).
- * @param {{ filenames: string[], onSyncComplete?: () => void, className?: string }} props
+ * @param {{ filenames: string[], onSyncComplete?: () => void, onSyncingChange?: (syncing: boolean) => void, className?: string }} props
  */
-function GptSyncStatusRow({ filenames = [], onSyncComplete, className = '' }) {
+function GptSyncStatusRow({ filenames = [], onSyncComplete, onSyncingChange, className = '' }) {
     const [st, setSt] = useState(null);
     const [syncing, setSyncing] = useState(false);
     const [syncHadError, setSyncHadError] = useState(false);
@@ -38,6 +38,10 @@ function GptSyncStatusRow({ filenames = [], onSyncComplete, className = '' }) {
     useEffect(() => {
         refresh();
     }, [filenames.length, refresh]);
+
+    useEffect(() => {
+        onSyncingChange?.(syncing);
+    }, [syncing, onSyncingChange]);
 
     useEffect(() => {
         const onVis = () => {
@@ -76,7 +80,7 @@ function GptSyncStatusRow({ filenames = [], onSyncComplete, className = '' }) {
             label = 'חיפוש המסמכים בענן לא מוגדר. פנה למנהל המערכת.';
         } else if (syncing) {
             dotColor = 'var(--matriya-accent, #166534)';
-            label = 'מסנכרן';
+            label = 'מסנכרן....';
         } else if (st.vector_store_id) {
             dotColor = 'var(--matriya-success, #166534)';
             label = 'מסונכרן';

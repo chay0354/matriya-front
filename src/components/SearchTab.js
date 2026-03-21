@@ -12,7 +12,7 @@ const RESEARCH_STAGES = [
     { id: 'L', label: 'L', desc: 'מותר רק אחרי N' }
 ];
 
-function SearchTab() {
+function SearchTab({ onGptSyncingChange }) {
     const [query, setQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState('');
     const [availableFiles, setAvailableFiles] = useState([]);
@@ -204,7 +204,12 @@ function SearchTab() {
         <div className="search-tab">
                 <div className="card">
                 <h2>חיפוש במסמכים</h2>
-                <GptSyncStatusRow filenames={availableFiles} onSyncComplete={loadAvailableFiles} className="search-tab-gpt-sync" />
+                <GptSyncStatusRow
+                    filenames={availableFiles}
+                    onSyncComplete={loadAvailableFiles}
+                    onSyncingChange={onGptSyncingChange}
+                    className="search-tab-gpt-sync"
+                />
 
                 <div className="answer-mode-section">
                     <h3 className="stage-heading">אופן תשובה</h3>
