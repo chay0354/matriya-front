@@ -243,7 +243,8 @@ function UploadTab({ onGptSyncingChange }) {
         setAskSources(null);
         setAskLoading(true);
         try {
-            const filenames = askSelectedFile ? [askSelectedFile] : fileList.map(f => f.filename);
+            // Empty list ⇒ server uses OpenAI file_search; מקורות = retrieved snippets only (not every full file).
+            const filenames = askSelectedFile ? [askSelectedFile] : [];
             const res = await api.post('/ask-matriya', { message: query, filenames }, { timeout: 90000 });
             setAskResult(res.data?.reply ?? '');
             setAskSources(Array.isArray(res.data?.sources) ? res.data.sources : []);
@@ -389,7 +390,7 @@ function UploadTab({ onGptSyncingChange }) {
                                 <div className="form-group">
                                     <label>חיפוש בתוך</label>
                                     <select value={askSelectedFile} onChange={e => setAskSelectedFile(e.target.value)}>
-                                        <option value="">כל הקבצים</option>
+                                        <option value="">כל הקבצים (מאגר מסונכרן — מקורות לפי קטעים שנמשכו)</option>
                                         {fileList.map(f => (
                                             <option key={f.filename} value={f.filename}>{f.filename}</option>
                                         ))}
