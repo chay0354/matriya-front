@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
+import AnswerEvidenceSection from './AnswerEvidenceSection';
 import './AskMatriyaTab.css';
+
+const ASK_CHAT_EVIDENCE_TITLE = 'מקורות מהמסמכים (ציטוטים)';
+const ASK_CHAT_EVIDENCE_HINT = 'קטעים ששימשו כבסיס לתשובה — לשקיפות וביקורת.';
 
 function AskMatriyaTab() {
     const [systemFiles, setSystemFiles] = useState([]);
@@ -89,7 +93,8 @@ function AskMatriyaTab() {
                 { timeout: 90000 }
             );
             const reply = res.data?.reply ?? '';
-            setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+            const sources = Array.isArray(res.data?.sources) ? res.data.sources : [];
+            setMessages((prev) => [...prev, { role: 'assistant', content: reply, sources }]);
         } catch (err) {
             const msg = err.response?.data?.error || err.message || 'שגיאה בשליחה';
             setError(msg);
@@ -192,6 +197,13 @@ function AskMatriyaTab() {
                                     part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
                                 )}
                             </div>
+                            {msg.role === 'assistant' ? (
+                                <AnswerEvidenceSection
+                                    sources={msg.sources || []}
+                                    title={ASK_CHAT_EVIDENCE_TITLE}
+                                    hint={ASK_CHAT_EVIDENCE_HINT}
+                                />
+                            ) : null}
                         </div>
                     ))}
                     {sending && (

@@ -2,7 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
 import GptSyncStatusRow from './GptSyncStatusRow';
+import AnswerEvidenceSection from './AnswerEvidenceSection';
 import './UploadTab.css';
+
+const ASK_EVIDENCE_TITLE = 'מקורות מהמסמכים (ציטוטים)';
+const ASK_EVIDENCE_HINT = 'קטעים ששימשו כבסיס לתשובה — לשקיפות וביקורת.';
 
 const ACCEPT = '.pdf,.docx,.txt,.doc,.xlsx,.xls';
 const ACCEPT_LIST = ['pdf', 'docx', 'txt', 'doc', 'xlsx', 'xls'];
@@ -82,6 +86,7 @@ function UploadTab({ onGptSyncingChange }) {
     const [askResult, setAskResult] = useState(null);
     const [askLoading, setAskLoading] = useState(false);
     const [askError, setAskError] = useState(null);
+    const [askSources, setAskSources] = useState(null);
     const fileInputRef = useRef(null);
     const folderInputRef = useRef(null);
 
@@ -235,11 +240,13 @@ function UploadTab({ onGptSyncingChange }) {
         if (!query) return;
         setAskError(null);
         setAskResult(null);
+        setAskSources(null);
         setAskLoading(true);
         try {
             const filenames = askSelectedFile ? [askSelectedFile] : fileList.map(f => f.filename);
             const res = await api.post('/ask-matriya', { message: query, filenames }, { timeout: 90000 });
             setAskResult(res.data?.reply ?? '');
+            setAskSources(Array.isArray(res.data?.sources) ? res.data.sources : []);
         } catch (err) {
             setAskError(err.response?.data?.error || err.message || 'שגיאה בשאילתה');
         } finally {
@@ -401,7 +408,14 @@ function UploadTab({ onGptSyncingChange }) {
                                 </button>
                                 {askError && <p className="upload-ask-error">{askError}</p>}
                                 {askResult != null && askResult !== '' && (
-                                    <div className="upload-ask-result">{askResult}</div>
+                                    <>
+                                        <div className="upload-ask-result">{askResult}</div>
+                                        <AnswerEvidenceSection
+                                            sources={askSources || []}
+                                            title={ASK_EVIDENCE_TITLE}
+                                            hint={ASK_EVIDENCE_HINT}
+                                        />
+                                    </>
                                 )}
                             </>
                         )}

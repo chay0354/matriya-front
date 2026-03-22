@@ -2,7 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
 import GptSyncStatusRow from './GptSyncStatusRow';
+import AnswerEvidenceSection from './AnswerEvidenceSection';
 import './SearchTab.css';
+
+const SEARCH_EVIDENCE_TITLE = 'מקורות מהמסמכים (ציטוטים)';
+const SEARCH_EVIDENCE_HINT = 'קטעים ששימשו כבסיס לתשובה — לשקיפות וביקורת.';
 
 const RESEARCH_STAGES = [
     { id: 'K', label: 'K', desc: 'מידע קיים בלבד (ללא פתרונות)' },
@@ -86,7 +90,8 @@ function SearchTab({ onGptSyncingChange }) {
                     run_id: data.run_id,
                     duration_ms: data.duration_ms,
                     results_count: 0,
-                    results: []
+                    results: [],
+                    sources: Array.isArray(data.sources) ? data.sources : []
                 });
             } else {
                 const params = {
@@ -397,6 +402,11 @@ function SearchTab({ onGptSyncingChange }) {
                                         part.type === 'bold' ? <strong key={j}>{part.value}</strong> : part.value
                                     )}
                                 </div>
+                                <AnswerEvidenceSection
+                                    sources={results.sources || []}
+                                    title={SEARCH_EVIDENCE_TITLE}
+                                    hint={SEARCH_EVIDENCE_HINT}
+                                />
                                 {results.use_4_agents && results.outputs && (
                                     <details className="four-agents-outputs">
                                         <summary>פלטי כל הסוכנים</summary>
