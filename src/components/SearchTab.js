@@ -7,6 +7,9 @@ import './SearchTab.css';
 
 const SEARCH_EVIDENCE_TITLE = 'מקורות מהמסמכים (ציטוטים)';
 const SEARCH_EVIDENCE_HINT = 'קטעים ששימשו כבסיס לתשובה — לשקיפות וביקורת.';
+/** Same scope label as UploadTab — search uses the same document list (`/files/detail`). */
+const ALL_DOCUMENTS_SCOPE_LABEL =
+    'כל הקבצים (מאגר מסונכרן — מקורות לפי קטעים שנמשכו)';
 
 const RESEARCH_STAGES = [
     { id: 'K', label: 'K', desc: 'מידע קיים בלבד (ללא פתרונות)' },
@@ -19,7 +22,8 @@ const RESEARCH_STAGES = [
 function SearchTab({ onGptSyncingChange }) {
     const [query, setQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState('');
-    const [availableFiles, setAvailableFiles] = useState([]);
+    /** Same source as UploadTab: `GET /files/detail` rows `{ filename, ... }`. */
+    const [documentFiles, setDocumentFiles] = useState([]);
     const [isLoadingFiles, setIsLoadingFiles] = useState(true);
     const [results, setResults] = useState(null);
     const [isSearching, setIsSearching] = useState(false);
@@ -130,16 +134,15 @@ function SearchTab({ onGptSyncingChange }) {
         }
     };
 
-    const loadAvailableFiles = useCallback(async () => {
+    const loadDocumentFiles = useCallback(async () => {
         setIsLoadingFiles(true);
         try {
-            const response = await api.get('/files', {
-                timeout: 15000
-            });
-            const files = response.data.files || [];
-            setAvailableFiles(files);
+            const response = await api.get('/files/detail', { timeout: 15000 });
+            const files = Array.isArray(response.data?.files) ? response.data.files : [];
+            setDocumentFiles(files);
         } catch (err) {
             console.error('Error loading files:', err);
+            setDocumentFiles([]);
             setError('שגיאה בטעינת רשימת הקבצים');
         } finally {
             setIsLoadingFiles(false);
@@ -147,8 +150,8 @@ function SearchTab({ onGptSyncingChange }) {
     }, []);
 
     useEffect(() => {
-        loadAvailableFiles();
-    }, [loadAvailableFiles]);
+        loadDocumentFiles();
+    }, [loadDocumentFiles]);
 
     const handleAgentCheck = async (agentType) => {
         if (!results || !results.answer) {
@@ -210,8 +213,8 @@ function SearchTab({ onGptSyncingChange }) {
                 <div className="card">
                 <h2>חיפוש במסמכים</h2>
                 <GptSyncStatusRow
-                    filenames={availableFiles}
-                    onSyncComplete={loadAvailableFiles}
+                    filenames={documentFiles.map((f) => f.filename)}
+                    onSyncComplete={loadDocumentFiles}
                     onSyncingChange={onGptSyncingChange}
                     className="search-tab-gpt-sync"
                 />
@@ -318,14 +321,14 @@ function SearchTab({ onGptSyncingChange }) {
                         >
                             {isLoadingFiles ? (
                                 <option value="">טוען קבצים...</option>
-                            ) : availableFiles.length === 0 ? (
+                            ) : documentFiles.length === 0 ? (
                                 <option value="">אין קבצים זמינים</option>
                             ) : (
                                 <>
-                                    <option value="">כל המסמכים</option>
-                                    {availableFiles.map((filename, index) => (
-                                        <option key={index} value={filename}>
-                                            {filename}
+                                    <option value="">{ALL_DOCUMENTS_SCOPE_LABEL}</option>
+                                    {documentFiles.map((f) => (
+                                        <option key={f.filename} value={f.filename}>
+                                            {f.filename}
                                         </option>
                                     ))}
                                 </>
