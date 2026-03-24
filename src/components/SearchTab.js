@@ -34,6 +34,8 @@ function SearchTab({ onGptSyncingChange }) {
     const [sessionId, setSessionId] = useState(null);
     const [sessionLoading, setSessionLoading] = useState(true);
     const [answerMode, setAnswerMode] = useState('quick'); // 'quick' = GET /search (stage required) | 'agents' = POST /api/research/run (4 agents)
+    /** quick only: 'research' = FSM + pre-LLM gate + kernel; 'document' = retrieval + answer only (no state machine). */
+    const [searchFlowMode, setSearchFlowMode] = useState('research');
     const [preJustification, setPreJustification] = useState('');
     /** Kernel v1.6 – optional JSON (POST /api/research/search when any block is non-empty). */
     const [kernelSignalsJson, setKernelSignalsJson] = useState('');
@@ -60,11 +62,16 @@ function SearchTab({ onGptSyncingChange }) {
     }, []);
 
     const handleSearch = async () => {
-        if (!sessionId) {
+        const quickResearch = answerMode === 'quick' && searchFlowMode === 'research';
+        if (answerMode === 'agents' && !sessionId) {
             setError('סשן מחקר לא זמין. נא לרענן את הדף.');
             return;
         }
-        if (answerMode === 'quick' && !researchStage) {
+        if (quickResearch && !sessionId) {
+            setError('סשן מחקר לא זמין. נא לרענן את הדף.');
+            return;
+        }
+        if (quickResearch && !researchStage) {
             setError('נא לבחור שלב מחקר (K, C, B, N או L) לפני שליחת השאלה');
             return;
         }
@@ -140,7 +147,8 @@ function SearchTab({ onGptSyncingChange }) {
                         query: query.trim(),
                         generate_answer: true,
                         stage: researchStage,
-                        session_id: sessionId
+                        session_id: sessionId,
+                        flow: 'research'
                     };
                     if (selectedFile) body.filename = selectedFile;
                     if (ks.value != null) body.kernel_signals = ks.value;
@@ -154,10 +162,14 @@ function SearchTab({ onGptSyncingChange }) {
                 } else {
                     const params = {
                         query: query.trim(),
-                        generate_answer: true,
-                        stage: researchStage,
-                        session_id: sessionId
+                        generate_answer: true
                     };
+                    if (searchFlowMode === 'document') {
+                        params.flow = 'document';
+                    } else {
+                        params.stage = researchStage;
+                        params.session_id = sessionId;
+                    }
                     if (selectedFile) params.filename = selectedFile;
 
                     const response = await api.get('/search', {
@@ -301,6 +313,35 @@ function SearchTab({ onGptSyncingChange }) {
                     </p>
                 </div>
 
+                {answerMode === 'quick' && (
+                    <div className="answer-mode-section">
+                        <h3 className="stage-heading">סוג זרימה</h3>
+                        <div className="mode-buttons">
+                            <button
+                                type="button"
+                                className={`mode-button ${searchFlowMode === 'research' ? 'active' : ''}`}
+                                onClick={() => setSearchFlowMode('research')}
+                                title="שער מחקר, pre-LLM, קרנל — לשאלות ניסוי / ניתוח"
+                            >
+                                ניתוח מחקר
+                            </button>
+                            <button
+                                type="button"
+                                className={`mode-button ${searchFlowMode === 'document' ? 'active' : ''}`}
+                                onClick={() => setSearchFlowMode('document')}
+                                title="חיפוש והסקה ממסמכים בלבד — ללא FSM"
+                            >
+                                חיפוש מסמך
+                            </button>
+                        </div>
+                        <p className="stage-hint">
+                            {searchFlowMode === 'document'
+                                ? 'Retrieval + תשובה בלבד. לא רצים validateAndAdvance, pre-LLM FSM או state machine.'
+                                : 'מסלול מחקר מלא: סשן, שלב K→L, שער ראיות לפני LLM, וקרנל.'}
+                        </p>
+                    </div>
+                )}
+
                 {answerMode === 'agents' && (
                     <div className="pre-justification-section" style={{ marginBottom: '12px' }}>
                         <label className="stage-hint">הצדקה לפני ריצה (אופציונלי – נשמר עם הריצה):</label>
@@ -315,7 +356,7 @@ function SearchTab({ onGptSyncingChange }) {
                     </div>
                 )}
 
-                {answerMode === 'quick' && (
+                {answerMode === 'quick' && searchFlowMode === 'research' && (
                     <div className="research-stage-section">
                         {sessionLoading && (
                             <p className="stage-hint" style={{ color: '#a0a0c0' }}>יוצר סשן מחקר...</p>
@@ -397,7 +438,14 @@ function SearchTab({ onGptSyncingChange }) {
                     />
                     <button
                         onClick={handleSearch}
-                        disabled={isSearching || !sessionId || (answerMode === 'quick' && !researchStage) || sessionLoading}
+                        disabled={
+                            isSearching ||
+                            sessionLoading ||
+                            (answerMode === 'agents' && !sessionId) ||
+                            (answerMode === 'quick' &&
+                                searchFlowMode === 'research' &&
+                                (!sessionId || !researchStage))
+                        }
                         className={`search-button ${isSearching ? 'loading' : ''}`}
                     >
                         {isSearching ? (
@@ -457,6 +505,45 @@ function SearchTab({ onGptSyncingChange }) {
 
                 {results && (
                     <div className="search-results">
+                        {results.status === 'PARTIAL_EVIDENCE' && (
+                            <div className="ai-answer partial-evidence-block">
+                                <div className="research-stage-badge">PARTIAL_EVIDENCE</div>
+                                <h3>מידע חלקי במערכת</h3>
+                                {results.gap_type ? (
+                                    <p className="stage-hint">סוג פער: {results.gap_type}</p>
+                                ) : null}
+                                {Array.isArray(results.what_exists) && results.what_exists.length > 0 && (
+                                    <div className="partial-list">
+                                        <strong>קיים:</strong>
+                                        <ul>
+                                            {results.what_exists.map((x, i) => (
+                                                <li key={`ex-${i}`}>{x}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {Array.isArray(results.what_missing) && results.what_missing.length > 0 && (
+                                    <div className="partial-list">
+                                        <strong>חסר:</strong>
+                                        <ul>
+                                            {results.what_missing.map((x, i) => (
+                                                <li key={`mi-${i}`}>{x}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                <AnswerEvidenceSection
+                                    sources={results.sources || []}
+                                    title={SEARCH_EVIDENCE_TITLE}
+                                    hint={SEARCH_EVIDENCE_HINT}
+                                />
+                            </div>
+                        )}
+                        {results.research_flow === 'document' && (
+                            <div className="research-stage-badge" title="ללא FSM / קרנל מחקר">
+                                חיפוש מסמך
+                            </div>
+                        )}
                         {results.blocked && (
                             <div className="blocked-message">
                                 <h3>🚫 תשובה נחסמה</h3>

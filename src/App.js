@@ -3,6 +3,7 @@ import './App.css';
 import UploadTab from './components/UploadTab';
 import SearchTab from './components/SearchTab';
 import AskMatriyaTab from './components/AskMatriyaTab';
+import ManagementLabTab from './components/ManagementLabTab';
 import LoginTab from './components/LoginTab';
 import AdminTab from './components/AdminTab';
 import axios from 'axios';
@@ -90,6 +91,7 @@ function App() {
         { id: 'upload', label: 'העלאת מסמכים' },
         { id: 'ask', label: 'Ask Matriya' },
         { id: 'search', label: 'מחקר' },
+        { id: 'lab', label: 'מעבדה (ניהול)' },
         ...(isAdmin ? [{ id: 'admin', label: 'ניהול' }] : [])
     ];
 
@@ -158,6 +160,7 @@ function App() {
                 {activeTab === 'upload' && <UploadTab onGptSyncingChange={setGptRagSyncing} />}
                 {activeTab === 'ask' && <AskMatriyaTab />}
                 {activeTab === 'search' && <SearchTab onGptSyncingChange={setGptRagSyncing} />}
+                {activeTab === 'lab' && <ManagementLabTab />}
                 {activeTab === 'admin' && isAdmin && <AdminTab isAdmin={isAdmin} />}
             </div>
         </div>

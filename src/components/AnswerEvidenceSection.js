@@ -13,10 +13,12 @@ function AnswerEvidenceSection({ sources, title, hint }) {
             {hint ? <p className="matriya-evidence__hint">{hint}</p> : null}
             <ul className="matriya-evidence__list">
                 {sources.map((s, i) => {
-                    const body = s.excerpt || s.text || '';
+                    const label = s.document_name || s.filename || '—';
+                    const body = s.preview || s.excerpt || s.text || '';
+                    const key = s.source_id != null ? String(s.source_id) : `${label}-${i}`;
                     return (
-                        <li key={`${s.filename}-${i}`} className="matriya-evidence__card">
-                            <div className="matriya-evidence__file">{s.filename || '—'}</div>
+                        <li key={key} className="matriya-evidence__card">
+                            <div className="matriya-evidence__file">{label}</div>
                             <blockquote className="matriya-evidence__quote">{body}</blockquote>
                         </li>
                     );

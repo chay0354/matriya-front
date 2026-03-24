@@ -31,6 +31,26 @@ If the environment variable is not set, it defaults to:
 https://matriya-back.vercel.app
 ```
 
+## Management lab (מעבדה) tab
+
+The **מעבדה (ניהול)** tab embeds the management UI lab for a selected project (same as: management app → project → מעבדה). It uses your **Matriya login JWT** against the management API (maneger-back proxies auth to Matriya).
+
+Set at build time:
+
+| Variable | Example (production) |
+|----------|----------------------|
+| `REACT_APP_MANAGEMENT_API_URL` | `https://manegment-back.vercel.app` |
+| `REACT_APP_MANAGEMENT_FRONT_URL` | `https://manegment-front.vercel.app` |
+
+Local example:
+
+```
+REACT_APP_MANAGEMENT_API_URL=http://localhost:8001
+REACT_APP_MANAGEMENT_FRONT_URL=http://localhost:5173
+```
+
+On **maneger-back**, allow the Matriya front origin in CORS (default list includes `https://matriya-front.vercel.app`; override with `CORS_ORIGINS` if needed).
+
 ## Important Notes
 
 - React requires environment variables to start with `REACT_APP_` to be accessible in the browser
