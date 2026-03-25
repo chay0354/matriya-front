@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
 import api from '../utils/api';
 import './GptSyncStatusRow.css';
 
@@ -22,17 +22,16 @@ function filterEligibleLogicalNames(names) {
 }
 
 /**
- * Cloud document sync status + actions (vendor-neutral UI).
+ * Cloud document sync status + actions (aligned with management RagTab: manual sync here; post-upload sync from parent).
  * @param {{
  *   filenames: string[],
  *   onSyncComplete?: () => void,
  *   onSyncingChange?: (syncing: boolean) => void,
- *   className?: string,
- *   uploadSyncRequest?: { requestId: number, logicalNames: string[] } | null,
- *   onUploadSyncHandled?: (requestId: number) => void
+ *   onStatusChange?: (st: object | null) => void,
+ *   uploadSyncBusy?: boolean,
+ *   className?: string
  * }} props
  */
-/** Status + indexing polls hit DB hydrate + OpenAI; cold starts need headroom. */
 const STATUS_REQUEST_MS = 120000;
 
 function statusFetchErrorMessage(err) {
@@ -47,30 +46,37 @@ function statusFetchErrorMessage(err) {
     return 'לא ניתן לטעון סטטוס מסמכים. נסו «רענון סטטוס».';
 }
 
-function GptSyncStatusRow({
-    filenames = [],
-    onSyncComplete,
-    onSyncingChange,
-    className = '',
-    uploadSyncRequest = null,
-    onUploadSyncHandled
-}) {
+const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
+    {
+        filenames = [],
+        onSyncComplete,
+        onSyncingChange,
+        onStatusChange,
+        uploadSyncBusy = false,
+        className = ''
+    },
+    ref
+) {
     const [st, setSt] = useState(null);
     const [statusLoading, setStatusLoading] = useState(true);
     const [statusError, setStatusError] = useState(null);
     const [syncing, setSyncing] = useState(false);
-    const [postSyncIndexingPoll, setPostSyncIndexingPoll] = useState(false);
     const [syncHadError, setSyncHadError] = useState(false);
-    const prevFileCountRef = useRef(0);
-    const prevVectorStoreIdRef = useRef('');
     const stRef = useRef(null);
     useEffect(() => {
         stRef.current = st;
     }, [st]);
 
-    const refresh = useCallback(async () => {
-        setStatusError(null);
-        setStatusLoading(true);
+    useEffect(() => {
+        onStatusChange?.(st);
+    }, [st, onStatusChange]);
+
+    const refresh = useCallback(async (opts = {}) => {
+        const silent = Boolean(opts.silent);
+        if (!silent) {
+            setStatusError(null);
+            setStatusLoading(true);
+        }
         const fetchOnce = () => api.get('/gpt-rag/status', { timeout: STATUS_REQUEST_MS });
         try {
             let res;
@@ -89,105 +95,48 @@ function GptSyncStatusRow({
             const data = res.data ?? null;
             setSt(data);
             stRef.current = data;
+            return data;
         } catch (e) {
-            setSt(null);
-            stRef.current = null;
-            setStatusError(statusFetchErrorMessage(e));
-            console.warn('[GptSyncStatusRow] /gpt-rag/status failed', e);
+            if (!silent) {
+                setSt(null);
+                stRef.current = null;
+                setStatusError(statusFetchErrorMessage(e));
+                console.warn('[GptSyncStatusRow] /gpt-rag/status failed', e);
+            }
+            return null;
         } finally {
-            setStatusLoading(false);
+            if (!silent) setStatusLoading(false);
         }
     }, []);
 
+    useImperativeHandle(
+        ref,
+        () => ({
+            refresh: () => refresh({ silent: false }),
+            refreshSilent: () => refresh({ silent: true })
+        }),
+        [refresh]
+    );
+
     useEffect(() => {
-        refresh();
+        refresh({ silent: false });
     }, [refresh]);
 
     useEffect(() => {
-        refresh();
+        refresh({ silent: true });
     }, [filenames.length, refresh]);
 
     useEffect(() => {
-        onSyncingChange?.(syncing || postSyncIndexingPoll);
-    }, [syncing, postSyncIndexingPoll, onSyncingChange]);
-
-    /** After new files or new vector store: refresh status once (no long OpenAI polling — avoids «מאנדקס» for minutes). */
-    useEffect(() => {
-        const n = filenames.length;
-        const prev = prevFileCountRef.current;
-        const increased = n > prev;
-        prevFileCountRef.current = n;
-        const vs = st?.vector_store_id || '';
-        const prevVs = prevVectorStoreIdRef.current;
-        const vsAppeared = Boolean(vs && !prevVs);
-        prevVectorStoreIdRef.current = vs;
-        if (!st?.openai || !st?.use_openai_file_search || !vs) return;
-        if ((!increased && !vsAppeared) || n === 0) return;
-        let cancelled = false;
-        (async () => {
-            setPostSyncIndexingPoll(true);
-            try {
-                await new Promise((r) => setTimeout(r, 1500));
-                if (!cancelled) await refresh();
-            } catch (e) {
-                console.warn('[GptSyncStatusRow] post-upload status refresh', e);
-            } finally {
-                if (!cancelled) setPostSyncIndexingPoll(false);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [filenames.length, st?.openai, st?.use_openai_file_search, st?.vector_store_id, refresh]);
+        onSyncingChange?.(syncing || uploadSyncBusy);
+    }, [syncing, uploadSyncBusy, onSyncingChange]);
 
     useEffect(() => {
         const onVis = () => {
-            if (document.visibilityState === 'visible') refresh();
+            if (document.visibilityState === 'visible') refresh({ silent: false });
         };
         document.addEventListener('visibilitychange', onVis);
         return () => document.removeEventListener('visibilitychange', onVis);
     }, [refresh]);
-
-    /** Incremental cloud sync after upload: only `only_logical_names` on the server. */
-    useEffect(() => {
-        const req = uploadSyncRequest;
-        if (!req?.requestId || !Array.isArray(req.logicalNames) || req.logicalNames.length === 0) return;
-        const names = filterEligibleLogicalNames(req.logicalNames);
-        if (names.length === 0) {
-            onUploadSyncHandled?.(req.requestId);
-            return;
-        }
-        let cancelled = false;
-        const rid = req.requestId;
-        (async () => {
-            await new Promise((r) => setTimeout(r, 500));
-            if (cancelled) return;
-            await refresh();
-            if (cancelled) return;
-            const cur = stRef.current;
-            if (!cur?.openai || !cur?.use_openai_file_search) {
-                onUploadSyncHandled?.(rid);
-                return;
-            }
-            setSyncing(true);
-            setSyncHadError(false);
-            try {
-                const res = await api.post('/gpt-rag/sync', { only_logical_names: names }, { timeout: 300000 });
-                await refresh();
-                onSyncComplete?.();
-                if (res.data?.indexing_pending) await refresh();
-            } catch (e) {
-                setSyncHadError(true);
-                console.warn('[GptSyncStatusRow] incremental upload sync', e);
-            } finally {
-                setSyncing(false);
-                onUploadSyncHandled?.(rid);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [uploadSyncRequest, refresh, onSyncComplete, onUploadSyncHandled]);
 
     const runSync = useCallback(
         async (opts) => {
@@ -200,9 +149,9 @@ function GptSyncStatusRow({
             setSyncHadError(false);
             try {
                 const res = await api.post('/gpt-rag/sync', body, { timeout: 300000 });
-                await refresh();
+                await refresh({ silent: true });
                 onSyncComplete?.();
-                if (res.data?.indexing_pending) await refresh();
+                if (res.data?.indexing_pending) await refresh({ silent: true });
             } catch (e) {
                 setSyncHadError(true);
                 console.warn('[GptSyncStatusRow]', e);
@@ -234,9 +183,9 @@ function GptSyncStatusRow({
         if (!st.openai) {
             dotColor = 'var(--matriya-error, #c0392b)';
             label = 'חיפוש המסמכים בענן לא מוגדר. פנה למנהל המערכת.';
-        } else if (syncing || postSyncIndexingPoll) {
+        } else if (syncing || uploadSyncBusy) {
             dotColor = 'var(--matriya-accent, #166534)';
-            label = postSyncIndexingPoll ? 'מעדכן סטטוס…' : 'מסנכרן....';
+            label = 'מסנכרן....';
         } else if (st.vector_store_id) {
             dotColor = 'var(--matriya-success, #166534)';
             label = 'מסונכרן';
@@ -262,7 +211,7 @@ function GptSyncStatusRow({
         }
     }
 
-    const uiBusy = syncing || postSyncIndexingPoll || statusLoading;
+    const uiBusy = syncing || uploadSyncBusy || statusLoading;
     const showResync =
         st?.openai && st?.use_openai_file_search && Boolean(st?.vector_store_id) && !uiBusy;
     const showRetry =
@@ -323,15 +272,17 @@ function GptSyncStatusRow({
                 <button
                     type="button"
                     className="gpt-sync-status-row__btn"
-                    disabled={syncing || postSyncIndexingPoll}
-                    onClick={refresh}
+                    disabled={syncing || uploadSyncBusy}
+                    onClick={() => refresh({ silent: false })}
                 >
                     רענון סטטוס
                 </button>
             </div>
         </div>
     );
-}
+});
+
+GptSyncStatusRow.displayName = 'GptSyncStatusRow';
 
 export default GptSyncStatusRow;
 export { hasEligibleFilenames, GPT_ELIGIBLE_RE, filterEligibleLogicalNames };

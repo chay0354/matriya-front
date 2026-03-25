@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
-import GptSyncStatusRow, { filterEligibleLogicalNames } from './GptSyncStatusRow';
+import GptSyncStatusRow, { filterEligibleLogicalNames, GPT_ELIGIBLE_RE } from './GptSyncStatusRow';
 import AnswerEvidenceSection from './AnswerEvidenceSection';
 import './UploadTab.css';
 
@@ -71,6 +71,42 @@ function collectFolderPathFulls(node) {
     return out;
 }
 
+/** Same idea as maneger-front resolveProjectFileIdsFromHints — match ingest hints to rows from GET /files/detail. */
+function resolveMatriyaLogicalNamesFromHints(files, hints) {
+    const list = Array.isArray(files) ? files : [];
+    const hintList = (Array.isArray(hints) ? hints : []).map((h) => String(h || '').trim()).filter(Boolean);
+    if (hintList.length === 0 || list.length === 0) return [];
+    const seen = new Set();
+    const out = [];
+    for (const hint of hintList) {
+        const base = hint.includes('/') || hint.includes('\\') ? hint.split(/[/\\]/).pop() : hint;
+        const candidates = list.filter((f) => {
+            const name = String(f.filename || '').trim();
+            if (!name) return false;
+            return name === hint || name === base || (base && name.endsWith(base));
+        });
+        const pick = candidates.sort((a, b) => {
+            const ta = new Date(a.uploaded_at || 0).getTime();
+            const tb = new Date(b.uploaded_at || 0).getTime();
+            return tb - ta;
+        })[0];
+        const fn = pick?.filename;
+        if (fn != null && String(fn).trim() && !seen.has(String(fn))) {
+            seen.add(String(fn));
+            out.push(String(fn).trim());
+        }
+    }
+    return out;
+}
+
+function hintListEligibleForGptSync(hints) {
+    const arr = Array.isArray(hints) ? hints : [];
+    return arr.some((n) => {
+        const base = String(n || '').split('/').filter(Boolean).pop() || '';
+        return base && GPT_ELIGIBLE_RE.test(base);
+    });
+}
+
 function UploadTab({ onGptSyncingChange }) {
     const [fileList, setFileList] = useState([]);
     const [fileListLoading, setFileListLoading] = useState(true);
@@ -88,18 +124,11 @@ function UploadTab({ onGptSyncingChange }) {
     const [askError, setAskError] = useState(null);
     const [askSources, setAskSources] = useState(null);
     const [deletingFilename, setDeletingFilename] = useState(null);
-    /** Bumps requestId so GptSyncStatusRow runs POST /gpt-rag/sync with only_logical_names (new uploads only). */
-    const [gptUploadSyncRequest, setGptUploadSyncRequest] = useState(null);
-    const gptUploadSyncReqIdRef = useRef(0);
+    /** Management-style: POST /gpt-rag/sync with only_logical_names after reload + optional name resolution. */
+    const gptRagStatusRef = useRef(null);
+    const gptSyncRowRef = useRef(null);
     const fileInputRef = useRef(null);
     const folderInputRef = useRef(null);
-
-    const queueGptSyncAfterIngest = (logicalNames) => {
-        const names = filterEligibleLogicalNames(Array.isArray(logicalNames) ? logicalNames : [logicalNames]);
-        if (names.length === 0) return;
-        gptUploadSyncReqIdRef.current += 1;
-        setGptUploadSyncRequest({ requestId: gptUploadSyncReqIdRef.current, logicalNames: names });
-    };
 
     const toggleFolder = (pathFull) => {
         setFoldersCollapsed(prev => {
@@ -110,31 +139,91 @@ function UploadTab({ onGptSyncingChange }) {
         });
     };
 
-    const loadFileList = async () => {
+    const loadFileList = useCallback(async () => {
         setFileListLoading(true);
         try {
             const res = await api.get('/files/detail');
-            setFileList(Array.isArray(res.data?.files) ? res.data.files : []);
+            const files = Array.isArray(res.data?.files) ? res.data.files : [];
+            setFileList(files);
+            return files;
         } catch (_) {
             setFileList([]);
+            return [];
         } finally {
             setFileListLoading(false);
         }
-    };
+    }, []);
 
-    const loadCollectionInfo = async () => {
+    const loadCollectionInfo = useCallback(async () => {
         try {
             const res = await api.get('/collection/info');
             setCollectionInfo(res.data);
         } catch (_) {
             setCollectionInfo(null);
         }
-    };
+    }, []);
+
+    /** Do not block UI on OpenAI upload/indexing (same idea as fast DELETE /files response). */
+    const runGptCloudSyncAfterUpload = useCallback(
+        (onlyLogicalNames) => {
+            const names = filterEligibleLogicalNames(onlyLogicalNames);
+            if (names.length === 0) return;
+            void api
+                .post('/gpt-rag/sync', { only_logical_names: names }, { timeout: 300000 })
+                .then(() => {
+                    loadFileList();
+                    loadCollectionInfo();
+                    return gptSyncRowRef.current?.refreshSilent?.();
+                })
+                .catch((e) => {
+                    console.warn('[UploadTab] gpt-rag/sync after upload', e);
+                })
+                .finally(() => {
+                    gptSyncRowRef.current?.refreshSilent?.();
+                });
+        },
+        [loadFileList, loadCollectionInfo]
+    );
+
+    /**
+     * Same flow as maneger RagTab queueGptResyncAfterUpload: debounce, reload file list, resolve names, incremental sync only.
+     */
+    const queueGptResyncAfterUpload = useCallback(
+        (fileNameHints, logicalNamesFromApi) => {
+            const hints = Array.isArray(fileNameHints) ? fileNameHints : [];
+            const fromApi = Array.isArray(logicalNamesFromApi) ? logicalNamesFromApi : [];
+            const unknownOrEligible = hints.length === 0 || hintListEligibleForGptSync(hints);
+            if (!unknownOrEligible) return;
+            window.setTimeout(async () => {
+                let gptSt = gptRagStatusRef.current;
+                try {
+                    const latest = await gptSyncRowRef.current?.refreshSilent?.();
+                    if (latest && typeof latest === 'object') gptSt = latest;
+                } catch (_) {}
+                if (!gptSt?.openai || !gptSt?.use_openai_file_search) return;
+                try {
+                    const freshFiles = await loadFileList();
+                    let names = filterEligibleLogicalNames(fromApi);
+                    if (names.length === 0 && hints.length > 0) {
+                        names = filterEligibleLogicalNames(resolveMatriyaLogicalNamesFromHints(freshFiles, hints));
+                    }
+                    if (names.length > 0) {
+                        runGptCloudSyncAfterUpload(names);
+                    } else {
+                        await gptSyncRowRef.current?.refreshSilent?.();
+                    }
+                } catch (_) {
+                    await gptSyncRowRef.current?.refreshSilent?.();
+                }
+            }, 500);
+        },
+        [loadFileList, runGptCloudSyncAfterUpload]
+    );
 
     useEffect(() => {
         loadFileList();
         loadCollectionInfo();
-    }, []);
+    }, [loadFileList, loadCollectionInfo]);
 
     useEffect(() => {
         if (!askSelectedFile) return;
@@ -199,7 +288,8 @@ function UploadTab({ onGptSyncingChange }) {
             if (response.data.success) {
                 setUploadResult({ type: 'success', message: 'העלאה הושלמה בהצלחה!', data: response.data.data });
                 const logicalName = response.data?.data?.filename;
-                if (logicalName) queueGptSyncAfterIngest([logicalName]);
+                const hints = logicalName ? [logicalName] : [];
+                queueGptResyncAfterUpload(hints, logicalName ? [logicalName] : []);
                 loadFileList();
                 loadCollectionInfo();
             } else {
@@ -233,7 +323,9 @@ function UploadTab({ onGptSyncingChange }) {
                 err++;
             }
         }
-        if (ingestedLogicalNames.length > 0) queueGptSyncAfterIngest(ingestedLogicalNames);
+        if (ingestedLogicalNames.length > 0) {
+            queueGptResyncAfterUpload(ingestedLogicalNames, ingestedLogicalNames);
+        }
         setIsUploading(false);
         setUploadResult({
             type: err === 0 ? 'success' : (ok === 0 ? 'error' : 'success'),
@@ -267,14 +359,14 @@ function UploadTab({ onGptSyncingChange }) {
         setDeletingFilename(filename);
         setUploadResult(null);
         try {
-            await api.delete('/files', { data: { filename }, timeout: 120000 });
+            await api.delete('/files', { data: { filename }, timeout: 60000 });
             setUploadResult({ type: 'success', message: `הקובץ נמחק מהמאגר: ${filename}` });
             if (askSelectedFile === filename) setAskSelectedFile('');
             setAskResult(null);
             setAskSources(null);
             setAskError(null);
-            loadFileList();
-            loadCollectionInfo();
+            await loadFileList();
+            await loadCollectionInfo();
         } catch (error) {
             setUploadResult({
                 type: 'error',
@@ -450,9 +542,11 @@ function UploadTab({ onGptSyncingChange }) {
                     <div className="card upload-ask-card">
                         <h2>שאל על המסמכים</h2>
                         <GptSyncStatusRow
+                            ref={gptSyncRowRef}
                             filenames={fileList.map((f) => f.filename)}
-                            uploadSyncRequest={gptUploadSyncRequest}
-                            onUploadSyncHandled={() => setGptUploadSyncRequest(null)}
+                            onStatusChange={(s) => {
+                                gptRagStatusRef.current = s;
+                            }}
                             onSyncComplete={() => {
                                 loadFileList();
                                 loadCollectionInfo();
