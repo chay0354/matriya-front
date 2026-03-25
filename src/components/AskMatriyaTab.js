@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import { formatBoldSegments } from '../utils/formatBold';
 import AnswerEvidenceSection from './AnswerEvidenceSection';
@@ -48,23 +48,25 @@ function AskMatriyaTab() {
         scrollToBottom();
     }, [messages]);
 
-    useEffect(() => {
-        let cancelled = false;
+    const loadSystemFiles = useCallback(() => {
         setFilesLoading(true);
-        api.get('/files/detail')
+        return api
+            .get('/files/detail')
             .then((res) => {
-                if (cancelled) return;
                 const list = Array.isArray(res.data?.files) ? res.data.files : [];
                 setSystemFiles(list.map((f) => f.filename));
             })
-            .catch(() => {
-                if (!cancelled) setSystemFiles([]);
-            })
-            .finally(() => {
-                if (!cancelled) setFilesLoading(false);
-            });
-        return () => { cancelled = true; };
+            .catch(() => setSystemFiles([]))
+            .finally(() => setFilesLoading(false));
     }, []);
+
+    useEffect(() => {
+        loadSystemFiles();
+    }, [loadSystemFiles]);
+
+    useEffect(() => {
+        setSelectedFilenames((prev) => prev.filter((f) => systemFiles.includes(f)));
+    }, [systemFiles]);
 
     const toggleFile = (filename) => {
         setSelectedFilenames((prev) =>
@@ -144,7 +146,13 @@ function AskMatriyaTab() {
                             <button
                                 type="button"
                                 className="ask-matriya-dropdown-trigger"
-                                onClick={() => setDropdownOpen((o) => !o)}
+                                onClick={() =>
+                                    setDropdownOpen((o) => {
+                                        const next = !o;
+                                        if (next) loadSystemFiles();
+                                        return next;
+                                    })
+                                }
                                 aria-expanded={dropdownOpen}
                                 aria-haspopup="listbox"
                             >

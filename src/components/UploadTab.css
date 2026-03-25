@@ -170,6 +170,12 @@
     font-weight: 500;
 }
 
+.upload-ask-card .upload-ask-hint {
+    margin: 8px 0 0 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
 .upload-ask-card select,
 .upload-ask-card textarea {
     width: 100%;

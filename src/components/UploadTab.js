@@ -127,6 +127,13 @@ function UploadTab({ onGptSyncingChange }) {
     }, []);
 
     useEffect(() => {
+        if (!askSelectedFile) return;
+        if (!fileList.some((f) => f.filename === askSelectedFile)) {
+            setAskSelectedFile('');
+        }
+    }, [fileList, askSelectedFile]);
+
+    useEffect(() => {
         if (fileList.length === 0) return;
         const tree = buildFileTree(fileList);
         const pathFulls = collectFolderPathFulls(tree);
@@ -243,9 +250,12 @@ function UploadTab({ onGptSyncingChange }) {
         setDeletingFilename(filename);
         setUploadResult(null);
         try {
-            await api.delete('/files', { data: { filename }, timeout: 60000 });
+            await api.delete('/files', { data: { filename }, timeout: 120000 });
             setUploadResult({ type: 'success', message: `הקובץ נמחק מהמאגר: ${filename}` });
             if (askSelectedFile === filename) setAskSelectedFile('');
+            setAskResult(null);
+            setAskSources(null);
+            setAskError(null);
             loadFileList();
             loadCollectionInfo();
         } catch (error) {
@@ -422,16 +432,27 @@ function UploadTab({ onGptSyncingChange }) {
                         {fileList.length > 0 && (
                             <>
                                 <div className="form-group">
-                                    <label>חיפוש בתוך</label>
-                                    <select value={askSelectedFile} onChange={e => setAskSelectedFile(e.target.value)}>
-                                        <option value="">כל הקבצים (מאגר מסונכרן — מקורות לפי קטעים שנמשכו)</option>
+                                    <label htmlFor="upload-ask-scope">חיפוש בתוך</label>
+                                    <select
+                                        id="upload-ask-scope"
+                                        value={askSelectedFile}
+                                        onChange={e => setAskSelectedFile(e.target.value)}
+                                        aria-describedby="upload-ask-scope-hint"
+                                    >
+                                        <option value="">כל הקבצים במאגר</option>
                                         {fileList.map(f => (
-                                            <option key={f.filename} value={f.filename}>{f.filename}</option>
+                                            <option key={f.filename} value={f.filename} title={f.filename}>
+                                                {f.filename}
+                                            </option>
                                         ))}
                                     </select>
+                                    <p id="upload-ask-scope-hint" className="upload-ask-hint muted">
+                                        מקורות בתשובה הם קטעים שנמשכו מהמאגר; אחרי מחיקת קובץ יש לרענן סנכרון (למעלה) אם משתמשים בחיפוש OpenAI.
+                                    </p>
                                 </div>
-                                <label>שאל שאלה</label>
+                                <label htmlFor="upload-ask-query">שאל שאלה</label>
                                 <textarea
+                                    id="upload-ask-query"
                                     value={askQuery}
                                     onChange={e => setAskQuery(e.target.value)}
                                     placeholder="הזן שאלה..."

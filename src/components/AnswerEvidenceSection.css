@@ -53,8 +53,11 @@
     font-size: 0.9rem;
     line-height: 1.55;
     white-space: pre-wrap;
+    word-break: break-word;
     color: var(--matriya-text, #111);
     border-right: 4px solid var(--matriya-accent, #166534);
     border-left: none;
     background: transparent;
+    max-height: 32rem;
+    overflow-y: auto;
 }
