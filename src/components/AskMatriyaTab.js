@@ -21,7 +21,7 @@ function sortFilenamesForAskMatriya(filenames) {
     });
 }
 
-function AskMatriyaTab() {
+function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const [systemFiles, setSystemFiles] = useState([]);
     const [selectedFilenames, setSelectedFilenames] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -65,8 +65,9 @@ function AskMatriyaTab() {
         scrollToBottom();
     }, [messages]);
 
-    const loadSystemFiles = useCallback(() => {
-        setFilesLoading(true);
+    const loadSystemFiles = useCallback((opts = {}) => {
+        const silent = Boolean(opts.silent);
+        if (!silent) setFilesLoading(true);
         return api
             .get('/files/detail')
             .then((res) => {
@@ -74,8 +75,12 @@ function AskMatriyaTab() {
                 const names = list.map((f) => f.filename).filter((n) => typeof n === 'string' && n.trim());
                 setSystemFiles(sortFilenamesForAskMatriya(names));
             })
-            .catch(() => setSystemFiles([]))
-            .finally(() => setFilesLoading(false));
+            .catch(() => {
+                /* Keep existing list on refresh errors; only initial load stays empty. */
+            })
+            .finally(() => {
+                if (!silent) setFilesLoading(false);
+            });
     }, []);
 
     useEffect(() => {
@@ -94,7 +99,7 @@ function AskMatriyaTab() {
 
     const handleSend = async () => {
         const text = input.trim();
-        if (!text || sending) return;
+        if (!text || sending || gptRagSyncing) return;
 
         setError(null);
         setInput('');
@@ -159,17 +164,21 @@ function AskMatriyaTab() {
             <div className="ask-matriya-single card">
                 <h2>שאל את מטריה</h2>
                 <p className="ask-matriya-hint">
-                    חובה לבחור לפחות מסמך אחד מהרשימה — התשובה תתבסס רק על המסמכים שבחרתם.
+                    חובה לבחור לפחות מסמך אחד מהרשימה. התשובה מותרת רק לפי מה שמופיע בטקסט המאונדקס של המסמכים שבחרתם — בלי השלמות מידע כללי מהמודל; אם אין במסמכים מספיק נתונים, התשובה תאמר זאת במפורש.
                 </p>
 
                 <GptSyncStatusRow
                     filenames={systemFiles}
-                    onSyncComplete={loadSystemFiles}
+                    onSyncComplete={() => loadSystemFiles()}
+                    onSyncingChange={onGptSyncingChange}
                     className="ask-matriya-gpt-sync"
                 />
 
                 <div className="ask-matriya-file-section" ref={dropdownRef}>
-                    <span className="ask-matriya-file-section-label">מסמכים במערכת:</span>
+                    <span className="ask-matriya-file-section-label">
+                        מסמכים במערכת
+                        {!filesLoading && systemFiles.length > 0 ? ` (${systemFiles.length})` : ''}:
+                    </span>
                     {filesLoading ? (
                         <div className="ask-matriya-loading-files">טוען...</div>
                     ) : systemFiles.length === 0 ? (
@@ -184,7 +193,7 @@ function AskMatriyaTab() {
                                         const next = !o;
                                         if (next) {
                                             setSearchQuery('');
-                                            loadSystemFiles();
+                                            void loadSystemFiles({ silent: true });
                                         }
                                         return next;
                                     })
@@ -288,6 +297,7 @@ function AskMatriyaTab() {
                         rows={2}
                         disabled={
                             sending ||
+                            gptRagSyncing ||
                             systemFiles.length === 0 ||
                             selectedFilenames.length === 0
                         }
@@ -298,6 +308,7 @@ function AskMatriyaTab() {
                         onClick={handleSend}
                         disabled={
                             sending ||
+                            gptRagSyncing ||
                             !input.trim() ||
                             selectedFilenames.length === 0 ||
                             systemFiles.length === 0

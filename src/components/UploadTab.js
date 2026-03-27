@@ -11,6 +11,9 @@ const ASK_EVIDENCE_HINT = 'קטעים ששימשו כבסיס לתשובה — �
 const ACCEPT = '.pdf,.docx,.txt,.doc,.xlsx,.xls';
 const ACCEPT_LIST = ['pdf', 'docx', 'txt', 'doc', 'xlsx', 'xls'];
 
+/** Tells matriya-back to skip debounced OpenAI auto-sync — UI runs POST /gpt-rag/sync itself. */
+const INGEST_OPT_OUT_AUTO_GPT_SYNC = { 'X-Matriya-Client-Gpt-Sync': '1' };
+
 function getFileType(filename) {
     if (!filename) return '—';
     const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -107,7 +110,7 @@ function hintListEligibleForGptSync(hints) {
     });
 }
 
-function UploadTab({ onGptSyncingChange }) {
+function UploadTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const [fileList, setFileList] = useState([]);
     const [fileListLoading, setFileListLoading] = useState(true);
     const [isDragging, setIsDragging] = useState(false);
@@ -129,6 +132,7 @@ function UploadTab({ onGptSyncingChange }) {
     const gptSyncRowRef = useRef(null);
     const fileInputRef = useRef(null);
     const folderInputRef = useRef(null);
+    const gptResyncDebounceRef = useRef(null);
 
     const toggleFolder = (pathFull) => {
         setFoldersCollapsed(prev => {
@@ -163,15 +167,23 @@ function UploadTab({ onGptSyncingChange }) {
         }
     }, []);
 
-    /** Do not block UI on OpenAI upload/indexing (same idea as fast DELETE /files response). */
+    const onGptSyncComplete = useCallback(() => {
+        loadFileList();
+        loadCollectionInfo();
+    }, [loadFileList, loadCollectionInfo]);
+
+    /**
+     * Fire-and-forget incremental cloud sync (no UI «מסנכרן» — avoids stuck state; server auto-sync skipped via ingest header).
+     */
     const runGptCloudSyncAfterUpload = useCallback(
         (onlyLogicalNames) => {
             const names = filterEligibleLogicalNames(onlyLogicalNames);
             if (names.length === 0) return;
+
             void api
                 .post('/gpt-rag/sync', { only_logical_names: names }, { timeout: 300000 })
                 .then(() => {
-                    loadFileList();
+                    void loadFileList();
                     loadCollectionInfo();
                     return gptSyncRowRef.current?.refreshSilent?.();
                 })
@@ -179,7 +191,7 @@ function UploadTab({ onGptSyncingChange }) {
                     console.warn('[UploadTab] gpt-rag/sync after upload', e);
                 })
                 .finally(() => {
-                    gptSyncRowRef.current?.refreshSilent?.();
+                    void gptSyncRowRef.current?.refreshSilent?.();
                 });
         },
         [loadFileList, loadCollectionInfo]
@@ -194,7 +206,11 @@ function UploadTab({ onGptSyncingChange }) {
             const fromApi = Array.isArray(logicalNamesFromApi) ? logicalNamesFromApi : [];
             const unknownOrEligible = hints.length === 0 || hintListEligibleForGptSync(hints);
             if (!unknownOrEligible) return;
-            window.setTimeout(async () => {
+            if (gptResyncDebounceRef.current != null) {
+                clearTimeout(gptResyncDebounceRef.current);
+            }
+            gptResyncDebounceRef.current = window.setTimeout(async () => {
+                gptResyncDebounceRef.current = null;
                 let gptSt = gptRagStatusRef.current;
                 try {
                     const latest = await gptSyncRowRef.current?.refreshSilent?.();
@@ -224,6 +240,15 @@ function UploadTab({ onGptSyncingChange }) {
         loadFileList();
         loadCollectionInfo();
     }, [loadFileList, loadCollectionInfo]);
+
+    useEffect(
+        () => () => {
+            if (gptResyncDebounceRef.current != null) {
+                clearTimeout(gptResyncDebounceRef.current);
+            }
+        },
+        []
+    );
 
     useEffect(() => {
         if (!askSelectedFile) return;
@@ -284,7 +309,7 @@ function UploadTab({ onGptSyncingChange }) {
         setIsUploading(true);
         setUploadResult(null);
         try {
-            const response = await api.post('/ingest/file', formData);
+            const response = await api.post('/ingest/file', formData, { headers: INGEST_OPT_OUT_AUTO_GPT_SYNC });
             if (response.data.success) {
                 setUploadResult({ type: 'success', message: 'העלאה הושלמה בהצלחה!', data: response.data.data });
                 const logicalName = response.data?.data?.filename;
@@ -313,7 +338,7 @@ function UploadTab({ onGptSyncingChange }) {
             const relativePath = file.webkitRelativePath || (file.path && typeof file.path === 'string' ? file.path : null);
             if (relativePath) formData.append('relative_path', relativePath);
             try {
-                const response = await api.post('/ingest/file', formData);
+                const response = await api.post('/ingest/file', formData, { headers: INGEST_OPT_OUT_AUTO_GPT_SYNC });
                 if (response.data?.success) {
                     ok++;
                     const fn = response.data?.data?.filename;
@@ -380,6 +405,7 @@ function UploadTab({ onGptSyncingChange }) {
     const runAsk = async () => {
         const query = (askQuery || '').trim();
         if (!query) return;
+        if (isUploading || gptRagSyncing) return;
         const tableFilenames = fileList.map((f) => f.filename).filter(Boolean);
         if (tableFilenames.length === 0) {
             setAskError('אין מסמכים בטבלה — העלו מסמכים כדי לשאול.');
@@ -547,11 +573,9 @@ function UploadTab({ onGptSyncingChange }) {
                             onStatusChange={(s) => {
                                 gptRagStatusRef.current = s;
                             }}
-                            onSyncComplete={() => {
-                                loadFileList();
-                                loadCollectionInfo();
-                            }}
+                            onSyncComplete={onGptSyncComplete}
                             onSyncingChange={onGptSyncingChange}
+                            fileUploadInProgress={isUploading}
                             className="upload-ask-gpt-sync"
                         />
                         {fileList.length > 0 && (
@@ -582,9 +606,14 @@ function UploadTab({ onGptSyncingChange }) {
                                     onChange={e => setAskQuery(e.target.value)}
                                     placeholder="הזן שאלה..."
                                     rows={4}
-                                    disabled={askLoading}
+                                    disabled={askLoading || isUploading || gptRagSyncing}
                                 />
-                                <button type="button" className="upload-ask-run" onClick={runAsk} disabled={askLoading || !askQuery.trim()}>
+                                <button
+                                    type="button"
+                                    className="upload-ask-run"
+                                    onClick={runAsk}
+                                    disabled={askLoading || !askQuery.trim() || isUploading || gptRagSyncing}
+                                >
                                     {askLoading ? 'מריץ...' : 'הרץ'}
                                 </button>
                                 {askError && <p className="upload-ask-error">{askError}</p>}

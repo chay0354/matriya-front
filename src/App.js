@@ -157,9 +157,15 @@ function App() {
             </div>
 
             <div className="tab-content-wrapper">
-                {activeTab === 'upload' && <UploadTab onGptSyncingChange={setGptRagSyncing} />}
-                {activeTab === 'ask' && <AskMatriyaTab />}
-                {activeTab === 'search' && <SearchTab onGptSyncingChange={setGptRagSyncing} />}
+                {activeTab === 'upload' && (
+                    <UploadTab onGptSyncingChange={setGptRagSyncing} gptRagSyncing={gptRagSyncing} />
+                )}
+                {activeTab === 'ask' && (
+                    <AskMatriyaTab onGptSyncingChange={setGptRagSyncing} gptRagSyncing={gptRagSyncing} />
+                )}
+                {activeTab === 'search' && (
+                    <SearchTab onGptSyncingChange={setGptRagSyncing} gptRagSyncing={gptRagSyncing} />
+                )}
                 {activeTab === 'admin' && isAdmin && <AdminTab isAdmin={isAdmin} />}
             </div>
         </div>

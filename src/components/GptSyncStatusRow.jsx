@@ -28,11 +28,20 @@ function filterEligibleLogicalNames(names) {
  *   onSyncComplete?: () => void,
  *   onSyncingChange?: (syncing: boolean) => void,
  *   onStatusChange?: (st: object | null) => void,
- *   uploadSyncBusy?: boolean,
+ *   fileUploadInProgress?: boolean — multipart ingest (maneger ragUploadOrAddInProgress).
+ *   backgroundGptSyncBusy?: boolean — POST /gpt-rag/sync only (maneger gptBackgroundSyncBusy).
  *   className?: string
  * }} props
  */
 const STATUS_REQUEST_MS = 120000;
+
+/** OpenAI can leave vector_store.status=in_progress while file_counts.in_progress is already 0 — avoid infinite «indexing» UI. */
+function vectorStoreIndexingLooksActive(st) {
+    if (!st?.vector_store_id || st.vector_store_status !== 'in_progress') return false;
+    const ip = st.file_counts?.in_progress;
+    if (typeof ip === 'number' && ip === 0) return false;
+    return true;
+}
 
 function statusFetchErrorMessage(err) {
     if (err?.code === 'ECONNABORTED' || String(err?.message || '').toLowerCase().includes('timeout')) {
@@ -52,7 +61,8 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
         onSyncComplete,
         onSyncingChange,
         onStatusChange,
-        uploadSyncBusy = false,
+        fileUploadInProgress = false,
+        backgroundGptSyncBusy = false,
         className = ''
     },
     ref
@@ -61,6 +71,8 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
     const [statusLoading, setStatusLoading] = useState(true);
     const [statusError, setStatusError] = useState(null);
     const [syncing, setSyncing] = useState(false);
+    /** True after /gpt-rag/sync returns indexing_pending until status shows indexing finished. */
+    const [syncResponseIndexingPending, setSyncResponseIndexingPending] = useState(false);
     const [syncHadError, setSyncHadError] = useState(false);
     const stRef = useRef(null);
     useEffect(() => {
@@ -127,10 +139,6 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
     }, [filenames.length, refresh]);
 
     useEffect(() => {
-        onSyncingChange?.(syncing || uploadSyncBusy);
-    }, [syncing, uploadSyncBusy, onSyncingChange]);
-
-    useEffect(() => {
         const onVis = () => {
             if (document.visibilityState === 'visible') refresh({ silent: false });
         };
@@ -147,13 +155,16 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
                     : {};
             setSyncing(true);
             setSyncHadError(false);
+            setSyncResponseIndexingPending(false);
             try {
                 const res = await api.post('/gpt-rag/sync', body, { timeout: 300000 });
                 await refresh({ silent: true });
                 onSyncComplete?.();
+                setSyncResponseIndexingPending(Boolean(res.data?.indexing_pending));
                 if (res.data?.indexing_pending) await refresh({ silent: true });
             } catch (e) {
                 setSyncHadError(true);
+                setSyncResponseIndexingPending(false);
                 console.warn('[GptSyncStatusRow]', e);
             } finally {
                 setSyncing(false);
@@ -164,18 +175,50 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
 
     const hasAnyFile = filenames.length > 0;
     const hasEligible = hasEligibleFilenames(filenames);
+    const openAiIndexing = Boolean(st && vectorStoreIndexingLooksActive(st));
+    const gptGateBusy =
+        syncing ||
+        backgroundGptSyncBusy ||
+        fileUploadInProgress ||
+        openAiIndexing ||
+        syncResponseIndexingPending;
+
+    useEffect(() => {
+        onSyncingChange?.(gptGateBusy);
+    }, [gptGateBusy, onSyncingChange]);
+
+    useEffect(() => {
+        if (!syncResponseIndexingPending || !st?.vector_store_id) return;
+        const vs = st.vector_store_status;
+        const ip = st.file_counts?.in_progress;
+        if (vs !== 'in_progress' || (typeof ip === 'number' && ip === 0)) {
+            setSyncResponseIndexingPending(false);
+        }
+    }, [st, syncResponseIndexingPending]);
+
+    useEffect(() => {
+        if (!openAiIndexing) return;
+        const id = window.setInterval(() => refresh({ silent: true }), 3500);
+        return () => clearInterval(id);
+    }, [openAiIndexing, refresh]);
 
     let dotColor = 'var(--matriya-border, #ccc)';
     let label = 'בודק חיבור לשירות המסמכים…';
     let hintId = 'gpt-sync-status-hint';
     let extraWarn = null;
 
-    if (statusLoading) {
-        dotColor = 'var(--matriya-muted, #6b7280)';
-        label = 'בודק חיבור לשירות המסמכים…';
-    } else if (statusError) {
+    if (statusError) {
         dotColor = 'var(--matriya-error, #c0392b)';
         label = statusError;
+    } else if (fileUploadInProgress) {
+        dotColor = 'var(--matriya-accent, #166534)';
+        label = 'מעלה או מוסיף קבצים… (המתן לפני שאלה)';
+    } else if (syncing || backgroundGptSyncBusy) {
+        dotColor = 'var(--matriya-accent, #166534)';
+        label = 'מסנכרן....';
+    } else if (statusLoading) {
+        dotColor = 'var(--matriya-muted, #6b7280)';
+        label = 'בודק חיבור לשירות המסמכים…';
     } else if (!st) {
         dotColor = 'var(--matriya-error, #c0392b)';
         label = 'לא התקבל מידע סטטוס מהשרת. נסו «רענון סטטוס».';
@@ -183,9 +226,9 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
         if (!st.openai) {
             dotColor = 'var(--matriya-error, #c0392b)';
             label = 'חיפוש המסמכים בענן לא מוגדר. פנה למנהל המערכת.';
-        } else if (syncing || uploadSyncBusy) {
+        } else if (openAiIndexing || syncResponseIndexingPending) {
             dotColor = 'var(--matriya-accent, #166534)';
-            label = 'מסנכרן....';
+            label = 'מאנדקס מסמכים בענן… (המתן לפני שאלה)';
         } else if (st.vector_store_id) {
             dotColor = 'var(--matriya-success, #166534)';
             label = 'מסונכרן';
@@ -211,7 +254,13 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
         }
     }
 
-    const uiBusy = syncing || uploadSyncBusy || statusLoading;
+    const uiBusy =
+        syncing ||
+        backgroundGptSyncBusy ||
+        fileUploadInProgress ||
+        statusLoading ||
+        openAiIndexing ||
+        syncResponseIndexingPending;
     const showResync =
         st?.openai && st?.use_openai_file_search && Boolean(st?.vector_store_id) && !uiBusy;
     const showRetry =
@@ -272,7 +321,7 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
                 <button
                     type="button"
                     className="gpt-sync-status-row__btn"
-                    disabled={syncing || uploadSyncBusy}
+                    disabled={syncing || backgroundGptSyncBusy}
                     onClick={() => refresh({ silent: false })}
                 >
                     רענון סטטוס

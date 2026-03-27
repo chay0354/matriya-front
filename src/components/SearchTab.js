@@ -19,7 +19,7 @@ const RESEARCH_STAGES = [
     { id: 'L', label: 'L', desc: 'מותר רק אחרי N' }
 ];
 
-function SearchTab({ onGptSyncingChange }) {
+function SearchTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const [query, setQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState('');
     /** Same source as UploadTab: `GET /files/detail` rows `{ filename, ... }`. */
@@ -62,6 +62,7 @@ function SearchTab({ onGptSyncingChange }) {
     }, []);
 
     const handleSearch = async () => {
+        if (gptRagSyncing) return;
         const quickResearch = answerMode === 'quick' && searchFlowMode === 'research';
         if (answerMode === 'agents' && !sessionId) {
             setError('סשן מחקר לא זמין. נא לרענן את הדף.');
@@ -435,10 +436,12 @@ function SearchTab({ onGptSyncingChange }) {
                         onKeyPress={handleKeyPress}
                         placeholder="הכנס שאילתת חיפוש..."
                         className="search-input"
+                        disabled={gptRagSyncing}
                     />
                     <button
                         onClick={handleSearch}
                         disabled={
+                            gptRagSyncing ||
                             isSearching ||
                             sessionLoading ||
                             (answerMode === 'agents' && !sessionId) ||

@@ -21,7 +21,10 @@
     margin-bottom: 16px;
 }
 
+/* Stack above .ask-matriya-messages so the open dropdown is not painted underneath the chat area. */
 .ask-matriya-file-section {
+    position: relative;
+    z-index: 5;
     margin-bottom: 20px;
     padding: 14px 18px;
     background: rgba(22, 101, 52, 0.06);
@@ -88,7 +91,7 @@
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    z-index: 10;
+    z-index: 50;
     background: var(--matriya-surface);
     border: 1px solid var(--matriya-border);
     border-radius: 12px;
@@ -176,6 +179,8 @@
 }
 
 .ask-matriya-messages {
+    position: relative;
+    z-index: 1;
     min-height: 260px;
     max-height: 45vh;
     overflow-y: auto;
