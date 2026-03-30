@@ -176,6 +176,11 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
     const hasAnyFile = filenames.length > 0;
     const hasEligible = hasEligibleFilenames(filenames);
     const openAiIndexing = Boolean(st && vectorStoreIndexingLooksActive(st));
+    const missingNames = Array.isArray(st?.coverage?.missing_files) ? st.coverage.missing_files : [];
+    const missingCountRaw = Number(st?.coverage?.missing_files_count);
+    const missingCount = Number.isFinite(missingCountRaw) ? Math.max(0, missingCountRaw) : 0;
+    const hasMissingCloudCoverage =
+        Boolean(st?.openai && st?.use_openai_file_search && st?.vector_store_id) && missingCount > 0;
     const gptGateBusy =
         syncing ||
         backgroundGptSyncBusy ||
@@ -229,6 +234,9 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
         } else if (openAiIndexing || syncResponseIndexingPending) {
             dotColor = 'var(--matriya-accent, #166534)';
             label = 'מאנדקס מסמכים בענן… (המתן לפני שאלה)';
+        } else if (hasMissingCloudCoverage) {
+            dotColor = 'var(--matriya-warning, #b45309)';
+            label = `נמצאו ${missingCount} קבצים שטרם סונכרנו לענן (נדרש סנכרון חסרים בלבד).`;
         } else if (st.vector_store_id) {
             dotColor = 'var(--matriya-success, #166534)';
             label = 'מסונכרן';
@@ -262,7 +270,14 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
         openAiIndexing ||
         syncResponseIndexingPending;
     const showResync =
-        st?.openai && st?.use_openai_file_search && Boolean(st?.vector_store_id) && !uiBusy;
+        st?.openai && st?.use_openai_file_search && Boolean(st?.vector_store_id) && !uiBusy && !hasMissingCloudCoverage;
+    const showSyncMissing =
+        st?.openai &&
+        st?.use_openai_file_search &&
+        Boolean(st?.vector_store_id) &&
+        !uiBusy &&
+        hasMissingCloudCoverage &&
+        missingNames.length > 0;
     const showRetry =
         st?.openai &&
         st?.use_openai_file_search &&
@@ -286,6 +301,15 @@ const GptSyncStatusRow = forwardRef(function GptSyncStatusRow(
                     {label}
                     {extraWarn ? <span className="gpt-sync-status-row__warn"> {extraWarn}</span> : null}
                 </span>
+                {showSyncMissing && (
+                    <button
+                        type="button"
+                        className="gpt-sync-status-row__btn gpt-sync-status-row__btn--primary"
+                        onClick={() => runSync({ only_logical_names: missingNames })}
+                    >
+                        סנכרון חסרים בלבד ({missingCount})
+                    </button>
+                )}
                 {showResync && (
                     <button
                         type="button"

@@ -24,6 +24,8 @@ function sortFilenamesForAskMatriya(filenames) {
 function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const [systemFiles, setSystemFiles] = useState([]);
     const [selectedFilenames, setSelectedFilenames] = useState([]);
+    const [allFilesScope, setAllFilesScope] = useState(true);
+    const [scopeTouched, setScopeTouched] = useState(false);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
@@ -91,10 +93,33 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
         setSelectedFilenames((prev) => prev.filter((f) => systemFiles.includes(f)));
     }, [systemFiles]);
 
+    useEffect(() => {
+        // Default scope: all files, once file list is available and user hasn't changed scope manually.
+        if (filesLoading) return;
+        if (systemFiles.length === 0) {
+            if (allFilesScope) setAllFilesScope(false);
+            return;
+        }
+        if (!scopeTouched && selectedFilenames.length === 0 && !allFilesScope) {
+            setAllFilesScope(true);
+        }
+    }, [filesLoading, systemFiles, allFilesScope, selectedFilenames.length, scopeTouched]);
+
     const toggleFile = (filename) => {
+        setScopeTouched(true);
+        if (allFilesScope) setAllFilesScope(false);
         setSelectedFilenames((prev) =>
             prev.includes(filename) ? prev.filter((f) => f !== filename) : [...prev, filename]
         );
+    };
+
+    const toggleAllFilesScope = () => {
+        setScopeTouched(true);
+        setAllFilesScope((prev) => {
+            const next = !prev;
+            if (next) setSelectedFilenames([]);
+            return next;
+        });
     };
 
     const handleSend = async () => {
@@ -108,8 +133,9 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
         setSending(true);
 
         try {
-            if (selectedFilenames.length === 0) {
-                setError('בחרו לפחות מסמך אחד מהרשימה לפני שליחת השאלה.');
+            const hasAnyScope = allFilesScope || selectedFilenames.length > 0;
+            if (!hasAnyScope) {
+                setError('בחרו לפחות מסמך אחד, או את האפשרות "כל הקבצים", לפני שליחת השאלה.');
                 setMessages((prev) => prev.slice(0, -1));
                 return;
             }
@@ -120,12 +146,18 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
             }
             const res = await api.post(
                 '/ask-matriya',
-                {
-                    message: text,
-                    history: messages,
-                    filenames: selectedFilenames
-                },
-                { timeout: 90000 }
+                allFilesScope
+                    ? {
+                        message: text,
+                        history: messages,
+                        all_files: true
+                    }
+                    : {
+                        message: text,
+                        history: messages,
+                        filenames: selectedFilenames
+                    },
+                { timeout: allFilesScope ? 120000 : 90000 }
             );
             const data = res.data || {};
             let replyText = data.reply != null ? String(data.reply) : '';
@@ -164,7 +196,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
             <div className="ask-matriya-single card">
                 <h2>שאל את מטריה</h2>
                 <p className="ask-matriya-hint">
-                    חובה לבחור לפחות מסמך אחד מהרשימה. התשובה מותרת רק לפי מה שמופיע בטקסט המאונדקס של המסמכים שבחרתם — בלי השלמות מידע כללי מהמודל; אם אין במסמכים מספיק נתונים, התשובה תאמר זאת במפורש. בשאלת השוואה בין שתי פורמולציות עם אחוזים, המערכת תנחה לטבלת Markdown: רכיב, % לכל גרסה ו־Δ (B−A) — רק מנתונים שמופיעים במסמכים.
+                    בחרו מסמכים ספציפיים או את האפשרות "כל הקבצים". התשובה מותרת רק לפי מה שמופיע בטקסט המאונדקס של המסמכים שבחרתם — בלי השלמות מידע כללי מהמודל; אם אין במסמכים מספיק נתונים, התשובה תאמר זאת במפורש. בשאלת השוואה בין שתי פורמולציות עם אחוזים, המערכת תנחה לטבלת Markdown: רכיב, % לכל גרסה ו־Δ (B−A) — רק מנתונים שמופיעים במסמכים.
                 </p>
 
                 <GptSyncStatusRow
@@ -202,7 +234,9 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                 aria-haspopup="listbox"
                             >
                                 <span className="ask-matriya-dropdown-trigger-text">
-                                    {selectedFilenames.length === 0
+                                    {allFilesScope
+                                        ? 'כל הקבצים'
+                                        : selectedFilenames.length === 0
                                         ? 'בחרו מסמכים...'
                                         : selectedFilenames.length === 1
                                             ? selectedFilenames[0]
@@ -222,6 +256,20 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                         onKeyDown={(e) => e.stopPropagation()}
                                     />
                                     <div className="ask-matriya-dropdown-list">
+                                        <button
+                                            type="button"
+                                            role="option"
+                                            aria-selected={allFilesScope}
+                                            className={`ask-matriya-dropdown-option ${allFilesScope ? 'selected' : ''}`}
+                                            onClick={toggleAllFilesScope}
+                                        >
+                                            <span className="ask-matriya-dropdown-option-check">
+                                                {allFilesScope ? '✓' : ''}
+                                            </span>
+                                            <span className="ask-matriya-dropdown-option-label" title="כל הקבצים המופיעים בטבלה">
+                                                כל הקבצים
+                                            </span>
+                                        </button>
                                         {filteredFiles.length === 0 ? (
                                             <div className="ask-matriya-dropdown-empty">אין התאמות</div>
                                         ) : (
@@ -230,12 +278,12 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                                     key={filename}
                                                     type="button"
                                                     role="option"
-                                                    aria-selected={selectedFilenames.includes(filename)}
-                                                    className={`ask-matriya-dropdown-option ${selectedFilenames.includes(filename) ? 'selected' : ''}`}
+                                                    aria-selected={!allFilesScope && selectedFilenames.includes(filename)}
+                                                    className={`ask-matriya-dropdown-option ${!allFilesScope && selectedFilenames.includes(filename) ? 'selected' : ''}`}
                                                     onClick={() => toggleFile(filename)}
                                                 >
                                                     <span className="ask-matriya-dropdown-option-check">
-                                                        {selectedFilenames.includes(filename) ? '✓' : ''}
+                                                        {!allFilesScope && selectedFilenames.includes(filename) ? '✓' : ''}
                                                     </span>
                                                     <span className="ask-matriya-dropdown-option-label" title={filename}>
                                                         {filename}
@@ -258,7 +306,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                 <div className="ask-matriya-messages">
                     {messages.length === 0 && (
                         <div className="ask-matriya-placeholder">
-                            בחרו מסמך אחד או יותר למעלה, ואז כתבו שאלה למטה.
+                            בחרו מסמך אחד או יותר, או את "כל הקבצים", ואז כתבו שאלה למטה.
                         </div>
                     )}
                     {messages.map((msg, i) => (
@@ -273,6 +321,8 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                     sources={msg.sources || []}
                                     title={ASK_CHAT_EVIDENCE_TITLE}
                                     hint={ASK_CHAT_EVIDENCE_HINT}
+                                    collapsible
+                                    defaultCollapsed
                                 />
                             ) : null}
                         </div>
@@ -299,7 +349,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                             sending ||
                             gptRagSyncing ||
                             systemFiles.length === 0 ||
-                            selectedFilenames.length === 0
+                            (!allFilesScope && selectedFilenames.length === 0)
                         }
                     />
                     <button
@@ -310,7 +360,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                             sending ||
                             gptRagSyncing ||
                             !input.trim() ||
-                            selectedFilenames.length === 0 ||
+                            (!allFilesScope && selectedFilenames.length === 0) ||
                             systemFiles.length === 0
                         }
                     >

@@ -332,7 +332,16 @@ function UploadTab({ onGptSyncingChange, gptRagSyncing = false }) {
         setUploadResult(null);
         let ok = 0, err = 0;
         const ingestedLogicalNames = [];
+        const dedupedFiles = [];
+        const seen = new Set();
         for (const file of files) {
+            const relativePath = file.webkitRelativePath || (file.path && typeof file.path === 'string' ? file.path : '');
+            const key = `${relativePath || file.name}::${file.size}::${file.lastModified || 0}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            dedupedFiles.push(file);
+        }
+        for (const file of dedupedFiles) {
             const formData = new FormData();
             formData.append('file', file);
             const relativePath = file.webkitRelativePath || (file.path && typeof file.path === 'string' ? file.path : null);
@@ -411,11 +420,12 @@ function UploadTab({ onGptSyncingChange, gptRagSyncing = false }) {
             setAskError('אין מסמכים בטבלה — העלו מסמכים כדי לשאול.');
             return;
         }
+        const useAllFilesScope = !askSelectedFile;
         const filenames = askSelectedFile
             ? tableFilenames.includes(askSelectedFile)
                 ? [askSelectedFile]
                 : []
-            : tableFilenames;
+            : [];
         if (askSelectedFile && filenames.length === 0) {
             setAskError('המסמך שנבחר אינו ברשימה — רעננו את הדף או בחרו מחדש.');
             return;
@@ -425,7 +435,10 @@ function UploadTab({ onGptSyncingChange, gptRagSyncing = false }) {
         setAskSources(null);
         setAskLoading(true);
         try {
-            const res = await api.post('/ask-matriya', { message: query, filenames }, { timeout: 90000 });
+            const body = useAllFilesScope
+                ? { message: query, all_files: true }
+                : { message: query, filenames };
+            const res = await api.post('/ask-matriya', body, { timeout: 120000 });
             setAskResult(res.data?.reply ?? '');
             setAskSources(Array.isArray(res.data?.sources) ? res.data.sources : []);
         } catch (err) {
