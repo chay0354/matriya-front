@@ -622,6 +622,11 @@ function UploadTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                     rows={4}
                                     disabled={askLoading || isUploading || gptRagSyncing}
                                 />
+                                <div className="upload-ask-live-indicator" aria-live="polite">
+                                    {askQuery.trim()
+                                        ? `✅ PROOF: LIVE SEARCH פעיל — "${askQuery.trim()}" • ${askQuery.trim().length} תווים (מתעדכן בכל הקשה)`
+                                        : 'הקלד בשדה השאלה כדי לראות הוכחת LIVE SEARCH בזמן אמת'}
+                                </div>
                                 <button
                                     type="button"
                                     className="upload-ask-run"

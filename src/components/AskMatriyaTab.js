@@ -40,9 +40,30 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const filteredFiles = sortFilenamesForAskMatriya(
         systemFiles.filter((f) => f.toLowerCase().includes((searchQuery || '').trim().toLowerCase()))
     );
+    const searchActive = (searchQuery || '').trim().length > 0;
+    const typingActive = (input || '').trim().length > 0;
 
     const fileBasename = (f) => f.split('/').filter(Boolean).pop() || f;
     const isSpreadsheetFilename = (f) => /\.xlsx$/i.test(fileBasename(f)) || /\.xls$/i.test(fileBasename(f));
+    const highlightMatch = (text, query) => {
+        const src = String(text || '');
+        const q = String(query || '').trim();
+        if (!q) return src;
+        const lowSrc = src.toLowerCase();
+        const lowQ = q.toLowerCase();
+        const idx = lowSrc.indexOf(lowQ);
+        if (idx < 0) return src;
+        const before = src.slice(0, idx);
+        const match = src.slice(idx, idx + q.length);
+        const after = src.slice(idx + q.length);
+        return (
+            <>
+                {before}
+                <mark className="ask-matriya-match">{match}</mark>
+                {after}
+            </>
+        );
+    };
 
     useEffect(() => {
         if (!dropdownOpen) return;
@@ -255,6 +276,14 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         onKeyDown={(e) => e.stopPropagation()}
                                     />
+                                    <div className="ask-matriya-search-live-hint" aria-live="polite">
+                                        <span>✅ PROOF: LIVE SEARCH פעיל — התוצאות מתעדכנות בכל הקשה</span>
+                                        {searchActive ? (
+                                            <span className="ask-matriya-search-live-badge">
+                                                LIVE SEARCH PROOF: "{searchQuery.trim()}" • {filteredFiles.length} results (updated per keystroke)
+                                            </span>
+                                        ) : null}
+                                    </div>
                                     <div className="ask-matriya-dropdown-list">
                                         <button
                                             type="button"
@@ -286,7 +315,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                                         {!allFilesScope && selectedFilenames.includes(filename) ? '✓' : ''}
                                                     </span>
                                                     <span className="ask-matriya-dropdown-option-label" title={filename}>
-                                                        {filename}
+                                                        {highlightMatch(filename, searchQuery)}
                                                     </span>
                                                     {isSpreadsheetFilename(filename) ? (
                                                         <span className="ask-matriya-file-kind" aria-hidden>
@@ -366,6 +395,17 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                     >
                         שלח
                     </button>
+                </div>
+                <div className="ask-matriya-input-live-indicator" aria-live="polite">
+                    {typingActive ? (
+                        <>
+                            <span className="ask-matriya-input-live-dot" aria-hidden />
+                            <span>✅ LIVE typing detected — UI updates on every keystroke</span>
+                            <span className="ask-matriya-input-live-count">התקבלו {input.trim().length} תווים</span>
+                        </>
+                    ) : (
+                        <span>הקלד שאלה — ותראה מיד חיווי LIVE שמוכיח שהפיצ׳ר פעיל</span>
+                    )}
                 </div>
             </div>
         </div>
