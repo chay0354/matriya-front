@@ -7,6 +7,15 @@ import './AskMatriyaTab.css';
 
 const ASK_CHAT_EVIDENCE_TITLE = 'מקורות מהמסמכים (ציטוטים)';
 const ASK_CHAT_EVIDENCE_HINT = 'קטעים ששימשו כבסיס לתשובה — לשקיפות וביקורת.';
+const ASK_ALL_FILES_VALUE = '__ALL_FILES__';
+
+function normalizeAskQuestion(text) {
+    return String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function makeAskScopeKey(filenames) {
+    return sortFilenamesForAskMatriya(filenames).join('\n');
+}
 
 /** Excel / spreadsheets first so they are not buried under long PDF/DOC lists; then locale sort. */
 function sortFilenamesForAskMatriya(filenames) {
@@ -23,7 +32,7 @@ function sortFilenamesForAskMatriya(filenames) {
 
 function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const [systemFiles, setSystemFiles] = useState([]);
-    const [selectedFilenames, setSelectedFilenames] = useState([]);
+    const [selectedFilenames, setSelectedFilenames] = useState([ASK_ALL_FILES_VALUE]);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
@@ -34,6 +43,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
     const messagesEndRef = useRef(null);
     const dropdownRef = useRef(null);
     const searchInputRef = useRef(null);
+    const lastAskRef = useRef(null);
 
     const filteredFiles = sortFilenamesForAskMatriya(
         systemFiles.filter((f) => f.toLowerCase().includes((searchQuery || '').trim().toLowerCase()))
@@ -88,13 +98,28 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
     }, [loadSystemFiles]);
 
     useEffect(() => {
-        setSelectedFilenames((prev) => prev.filter((f) => systemFiles.includes(f)));
+        setSelectedFilenames((prev) => {
+            if (prev.includes(ASK_ALL_FILES_VALUE)) return [ASK_ALL_FILES_VALUE];
+            const kept = prev.filter((f) => systemFiles.includes(f));
+            return kept.length ? kept : [ASK_ALL_FILES_VALUE];
+        });
     }, [systemFiles]);
 
+    const isAllFilesSelected = selectedFilenames.includes(ASK_ALL_FILES_VALUE);
+
     const toggleFile = (filename) => {
-        setSelectedFilenames((prev) =>
-            prev.includes(filename) ? prev.filter((f) => f !== filename) : [...prev, filename]
-        );
+        if (filename === ASK_ALL_FILES_VALUE) {
+            setSelectedFilenames([ASK_ALL_FILES_VALUE]);
+            return;
+        }
+        setSelectedFilenames((prev) => {
+            const withoutAll = prev.filter((f) => f !== ASK_ALL_FILES_VALUE);
+            if (withoutAll.includes(filename)) {
+                const next = withoutAll.filter((f) => f !== filename);
+                return next.length ? next : [ASK_ALL_FILES_VALUE];
+            }
+            return [...withoutAll, filename];
+        });
     };
 
     const handleSend = async () => {
@@ -118,12 +143,25 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                 setMessages((prev) => prev.slice(0, -1));
                 return;
             }
+            const filenames = isAllFilesSelected
+                ? [...systemFiles]
+                : selectedFilenames.filter((f) => systemFiles.includes(f));
+            if (filenames.length === 0) {
+                setError('אין מסמכים זמינים לשאילתה. רעננו את הרשימה ונסו שוב.');
+                setMessages((prev) => prev.slice(0, -1));
+                return;
+            }
+            const repeatKey = `${normalizeAskQuestion(text)}\n---\n${makeAskScopeKey(filenames)}`;
+            if (lastAskRef.current?.key === repeatKey) {
+                const cached = lastAskRef.current;
+                setMessages((prev) => [...prev, { role: 'assistant', content: cached.reply, sources: cached.sources }]);
+                return;
+            }
             const res = await api.post(
                 '/ask-matriya',
                 {
                     message: text,
-                    history: messages,
-                    filenames: selectedFilenames
+                    filenames
                 },
                 { timeout: 90000 }
             );
@@ -142,6 +180,7 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                 replyText = String(data.message || data.error || '');
             }
             const sources = Array.isArray(data.sources) ? data.sources : [];
+            lastAskRef.current = { key: repeatKey, reply: replyText, sources };
             setMessages((prev) => [...prev, { role: 'assistant', content: replyText, sources }]);
         } catch (err) {
             const msg = err.response?.data?.error || err.message || 'שגיאה בשליחה';
@@ -165,6 +204,12 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                 <h2>שאל את מטריה</h2>
                 <p className="ask-matriya-hint">
                     חובה לבחור לפחות מסמך אחד מהרשימה. התשובה מותרת רק לפי מה שמופיע בטקסט המאונדקס של המסמכים שבחרתם — בלי השלמות מידע כללי מהמודל; אם אין במסמכים מספיק נתונים, התשובה תאמר זאת במפורש.
+                </p>
+                <p className="ask-matriya-hint">
+                    השרת בודק תחילה אם השאלה באופן ברור עוסקת ברשימת החומרים/הניסויים כפי שרשומים במערכת הניהול (כשיש חיבור לשרת הניהול); שאלות מקט, מפרט טכני או תוכן מסמכים — בדרך כלל נענות מטקסט הקבצים שבחרתם. אם כן לניהול — התשובה מסתמכת על הנתונים משם; אחרת על טקסט המסמכים. ציטוטים מהמסמכים — רק לקבצים המופיעים ברשימה; אחרי מחיקה יש לרענן; סנכרון OpenAI למעלה מעדכן את החיפוש בענן.
+                </p>
+                <p className="ask-matriya-hint">
+                    לאותה שאלה ואותה בחירת מסמכים, המערכת מכוונת לתשובה יציבה ועקבית יותר; היסטוריית השיחה בשדה למטה עשויה לשנות מעט את ניסוח התשובה בין סיבובים.
                 </p>
 
                 <GptSyncStatusRow
@@ -202,8 +247,8 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                 aria-haspopup="listbox"
                             >
                                 <span className="ask-matriya-dropdown-trigger-text">
-                                    {selectedFilenames.length === 0
-                                        ? 'בחרו מסמכים...'
+                                    {isAllFilesSelected
+                                        ? 'כל המסמכים במערכת'
                                         : selectedFilenames.length === 1
                                             ? selectedFilenames[0]
                                             : `${selectedFilenames.length} מסמכים נבחרו`}
@@ -222,6 +267,20 @@ function AskMatriyaTab({ onGptSyncingChange, gptRagSyncing = false }) {
                                         onKeyDown={(e) => e.stopPropagation()}
                                     />
                                     <div className="ask-matriya-dropdown-list">
+                                        <button
+                                            type="button"
+                                            role="option"
+                                            aria-selected={isAllFilesSelected}
+                                            className={`ask-matriya-dropdown-option ${isAllFilesSelected ? 'selected' : ''}`}
+                                            onClick={() => toggleFile(ASK_ALL_FILES_VALUE)}
+                                        >
+                                            <span className="ask-matriya-dropdown-option-check">
+                                                {isAllFilesSelected ? '✓' : ''}
+                                            </span>
+                                            <span className="ask-matriya-dropdown-option-label" title="כל המסמכים במערכת">
+                                                כל המסמכים במערכת
+                                            </span>
+                                        </button>
                                         {filteredFiles.length === 0 ? (
                                             <div className="ask-matriya-dropdown-empty">אין התאמות</div>
                                         ) : (
